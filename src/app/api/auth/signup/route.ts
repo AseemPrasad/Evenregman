@@ -1,15 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { z } from "zod";
 
 import { connectToDatabase } from "@/lib/db";
 import { UserModel } from "@/models/User";
-
-const hostSignupSchema = z.object({
-  name: z.string().trim().min(2).max(100),
-  email: z.string().trim().email().transform((value) => value.toLowerCase()),
-  password: z.string().min(8)
-});
+import { hostSignupSchema } from "@/schemas/auth";
 
 export async function POST(request: NextRequest) {
   try {
