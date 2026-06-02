@@ -1,5 +1,3 @@
-import { NextResponse } from "next/server";
-
 import { auth } from "@/lib/session";
 import { connectToDatabase } from "@/lib/db";
 import { RegistrationModel } from "@/models/Registration";
@@ -9,14 +7,14 @@ export async function GET(req: Request, { params }: { params: { eventId: string 
   const session = await auth();
 
   if (!session?.user || session.user.role !== "HOST") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
   }
 
   const eventId = params.eventId;
 
-  // query params: mode = 'name_email' or 'email'
   const url = new URL(req.url);
   const mode = (url.searchParams.get("mode") || "name_email").toLowerCase();
+  const search = url.searchParams.get("search");
 
   try {
     // verify ownership
@@ -24,32 +22,57 @@ export async function GET(req: Request, { params }: { params: { eventId: string 
 
     await connectToDatabase();
 
-    // fetch registrations with attendee info; only active registrations by default
-    const regs = await RegistrationModel.find({ eventId: toObjectId(eventId), status: { $in: ["ACTIVE"] } })
-      .populate({ path: "attendeeId", select: "name email" })
-      .lean();
+    // build aggregation pipeline to stream joined attendee info
+    const match: any = { eventId: toObjectId(eventId), status: { $in: ["ACTIVE"] } };
 
-    // build csv
-    let csv = "";
-    if (mode === "email" || mode === "email_only") {
-      csv += "email\n";
-      for (const r of regs) {
-        const attendee = (r as any).attendeeId;
-        csv += `${(attendee?.email || "").replace(/\"/g, '""')}\n`;
-      }
-    } else {
-      csv += "name,email\n";
-      for (const r of regs) {
-        const attendee = (r as any).attendeeId;
-        const name = (attendee?.name || "").replace(/\"/g, '""');
-        const email = (attendee?.email || "").replace(/\"/g, '""');
-        csv += `"${name}","${email}"\n`;
-      }
+    const pipeline: any[] = [
+      { $match: match },
+      { $lookup: { from: "users", localField: "attendeeId", foreignField: "_id", as: "attendee" } },
+      { $unwind: "$attendee" }
+    ];
+
+    if (search) {
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&"), "i");
+      pipeline.push({ $match: { $or: [{ "attendee.name": { $regex: regex } }, { "attendee.email": { $regex: regex } }] } });
     }
+
+    pipeline.push({ $project: { "attendee.name": 1, "attendee.email": 1 } });
+
+    const cursor = RegistrationModel.aggregate(pipeline).cursor({ batchSize: 1000 }).exec();
 
     const filename = `registrations-${eventId}-${mode}.csv`;
 
-    return new NextResponse(csv, {
+    const stream = new ReadableStream({
+      async start(controller) {
+        // emit header
+        if (mode === "email" || mode === "email_only") {
+          controller.enqueue(new TextEncoder().encode("email\n"));
+        } else {
+          controller.enqueue(new TextEncoder().encode("name,email\n"));
+        }
+
+        try {
+          for await (const doc of cursor) {
+            const attendee = doc.attendee || {};
+            const name = (attendee.name || "").replace(/\"/g, '""');
+            const email = (attendee.email || "").replace(/\"/g, '""');
+
+            if (mode === "email" || mode === "email_only") {
+              controller.enqueue(new TextEncoder().encode(`${email}\n`));
+            } else {
+              controller.enqueue(new TextEncoder().encode(`"${name}","${email}"\n`));
+            }
+          }
+        } catch (err) {
+          controller.error(err);
+          return;
+        }
+
+        controller.close();
+      }
+    });
+
+    return new Response(stream, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
@@ -59,6 +82,6 @@ export async function GET(req: Request, { params }: { params: { eventId: string 
   } catch (error: any) {
     const statusCode = error?.statusCode || 500;
     const message = error?.message || "Unable to export registrations.";
-    return NextResponse.json({ error: message }, { status: statusCode });
+    return new Response(JSON.stringify({ error: message }), { status: statusCode, headers: { "Content-Type": "application/json" } });
   }
 }

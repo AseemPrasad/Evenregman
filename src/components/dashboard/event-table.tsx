@@ -4,6 +4,7 @@ import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack
 import Link from "next/link";
 import { useTransition } from "react";
 import { toast } from "sonner";
+import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,7 +79,7 @@ function ActionsCell({ event }: { event: HostEventRow }) {
 }
 
 export function EventTable({ data }: Props) {
-  const columns: ColumnDef<HostEventRow>[] = [
+  const columns = useMemo<ColumnDef<HostEventRow>[]>(() => [
     {
       accessorKey: "title",
       header: "Title",

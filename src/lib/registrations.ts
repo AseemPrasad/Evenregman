@@ -90,16 +90,7 @@ export async function registerAttendeeForEvent(
         throw new Error("This event is sold out.");
       }
 
-      const existingRegistration = await RegistrationModel.findOne({ eventId: event._id })
-        .session(session)
-        .select({ _id: 1 })
-        .lean();
-
-      if (existingRegistration) {
-        throw new Error("You are already registered for this event.");
-      }
-
-      const existingUser = await UserModel.findOne({ email: normalizedEmail }).session(session);
+      const existingUser = await UserModel.findOne({ email: normalizedEmail }).session(session).select({ passwordHash: 1, role: 1 }).lean();
 
       let attendeeId: mongoose.Types.ObjectId;
       let accountState: "created" | "reused";
@@ -133,6 +124,16 @@ export async function registerAttendeeForEvent(
 
         attendeeId = createdUser._id;
         accountState = "created";
+      }
+
+      // check for existing registration for this attendee and event
+      const existingRegistration = await RegistrationModel.findOne({ eventId: event._id, attendeeId })
+        .session(session)
+        .select({ _id: 1 })
+        .lean();
+
+      if (existingRegistration) {
+        throw new Error("You are already registered for this event.");
       }
 
       const nextAttendeeCount = event.attendeeCount + 1;

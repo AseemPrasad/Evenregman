@@ -37,40 +37,42 @@ export default function RegistrationTable({
     setPage(initialData.page || 1);
   }, [initialData]);
 
-  async function fetchPage(p = page) {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("page", String(p));
-      params.set("limit", String(limit));
-      if (search) params.set("search", search);
-      if (sort) params.set("sort", sort);
+  const fetchPage = React.useCallback(
+    async (p = 1) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set("page", String(p));
+        params.set("limit", String(limit));
+        if (search) params.set("search", search);
+        if (sort) params.set("sort", sort);
 
-      const res = await fetch(`/api/host/events/${eventId}/registrations?${params.toString()}`, {
-        method: "GET",
-        credentials: "same-origin"
-      });
+        const res = await fetch(`/api/host/events/${eventId}/registrations?${params.toString()}`, {
+          method: "GET",
+          credentials: "same-origin"
+        });
 
-      if (!res.ok) {
-        setData([]);
-        setTotal(0);
-        return;
+        if (!res.ok) {
+          setData([]);
+          setTotal(0);
+          return;
+        }
+
+        const json = await res.json();
+        setData(json.data || []);
+        setTotal(json.total || 0);
+        setPage(json.page || 1);
+      } finally {
+        setLoading(false);
       }
-
-      const json = await res.json();
-      setData(json.data || []);
-      setTotal(json.total || 0);
-      setPage(json.page || 1);
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [eventId, limit, search, sort]
+  );
 
   useEffect(() => {
     // fetch when page/limit/search/sort changes
     fetchPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limit, search, sort]);
+  }, [fetchPage]);
 
   function onSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
