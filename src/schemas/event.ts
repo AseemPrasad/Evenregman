@@ -21,6 +21,23 @@ const eventBaseSchema = z.object({
   slug: slugSchema.optional()
 });
 
+export const eventCreationFormSchema = z.object({
+  title: titleSchema,
+  description: descriptionSchema,
+  date: z.string().min(1, "Date is required"),
+  time: timeSchema,
+  location: locationSchema,
+  capacity: positiveIntegerSchema,
+  registrationCutoff: z.string().min(1, "Registration cutoff is required")
+});
+
+export const eventUpdateFormSchema = eventCreationFormSchema.partial().refine(
+  (value) => Object.values(value).some((field) => field !== undefined),
+  {
+    message: "At least one field must be provided for update"
+  }
+);
+
 export const eventCreationSchema = eventBaseSchema.superRefine((value, context) => {
   if (value.registrationCutoff.getTime() <= Date.now()) {
     context.addIssue({
