@@ -97,6 +97,36 @@ export default function RegistrationTable({
         </button>
       </form>
 
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="rounded border px-3 py-1 text-sm"
+          onClick={() => {
+            const params = new URLSearchParams();
+            if (search) params.set("search", search);
+            if (sort) params.set("sort", sort);
+            params.set("mode", "name_email");
+            window.location.href = `/api/host/events/${eventId}/registrations/export?${params.toString()}`;
+          }}
+        >
+          Export (Name + Email)
+        </button>
+
+        <button
+          type="button"
+          className="rounded border px-3 py-1 text-sm"
+          onClick={() => {
+            const params = new URLSearchParams();
+            if (search) params.set("search", search);
+            if (sort) params.set("sort", sort);
+            params.set("mode", "email");
+            window.location.href = `/api/host/events/${eventId}/registrations/export?${params.toString()}`;
+          }}
+        >
+          Export (Email only)
+        </button>
+      </div>
+
       <div className="overflow-x-auto rounded border">
         <table className="w-full table-auto">
           <thead className="bg-muted-foreground/5 text-left text-sm font-medium text-muted-foreground">
