@@ -6,6 +6,7 @@ import {
   formatPublicEventDate,
   getPublicEventBySlug
 } from "@/lib/public-events";
+import { EventRegistrationForm } from "@/components/registrations/event-registration-form";
 
 type PageProps = {
   params: Promise<{
@@ -47,6 +48,17 @@ export default async function PublicEventPage({ params }: PageProps) {
 
   const remainingSeats = Math.max(event.capacity - event.attendeeCount, 0);
   const isSoldOut = remainingSeats === 0;
+  const registrationCutoffPassed = event.registrationCutoff.getTime() <= Date.now();
+  const canRegister = event.status === "OPEN" && !isSoldOut && !registrationCutoffPassed;
+  const statusMessage = canRegister
+    ? "Complete the form below to create or reuse your attendee account and secure your seat."
+    : registrationCutoffPassed
+      ? "Registration cutoff has passed for this event."
+      : isSoldOut
+        ? "This event has reached capacity."
+        : event.status === "CLOSED"
+          ? "This event is closed for new registrations."
+          : "Registration is currently unavailable.";
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(15,23,42,0.08),transparent_25%),radial-gradient(circle_at_bottom_right,rgba(2,132,199,0.10),transparent_30%)] px-4 py-10 sm:px-6 lg:px-8">
@@ -60,7 +72,7 @@ export default async function PublicEventPage({ params }: PageProps) {
             <span>{event.status}</span>
           </div>
 
-          <div className="mt-6 grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
+          <div className="mt-6 grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
             <div className="space-y-6">
               <div className="space-y-4">
                 <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
@@ -111,6 +123,20 @@ export default async function PublicEventPage({ params }: PageProps) {
                 <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
                   <div className="font-medium">Registration cutoff</div>
                   <div className="mt-1 text-muted-foreground">{formatPublicEventDate(event.registrationCutoff)}</div>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-3xl border border-border/70 bg-background/70 p-5">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                  Registration
+                </p>
+
+                <div className="mt-4">
+                  <EventRegistrationForm
+                    slug={event.slug}
+                    isRegistrationOpen={canRegister}
+                    statusMessage={statusMessage}
+                  />
                 </div>
               </div>
             </aside>
