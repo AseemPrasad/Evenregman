@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Skeleton from "@/components/ui/skeleton";
+import EmptyState from "@/components/ui/empty-state";
 
 type Attendee = { id: string; name: string; email: string };
 
@@ -127,25 +129,35 @@ export default function RegistrationTable({
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded border">
-        <table className="w-full table-auto">
-          <thead className="bg-muted-foreground/5 text-left text-sm font-medium text-muted-foreground">
+      <div className="overflow-x-auto rounded">
+        <table className="premium-table">
+          <thead>
             <tr>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Email</th>
-              <th className="px-4 py-2">Registered</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Registered</th>
             </tr>
           </thead>
           <tbody>
-            {data.length === 0 && (
+            {loading && (
+              Array.from({ length: limit > 10 ? 10 : limit }).map((_, i) => (
+                <tr key={`skeleton-${i}`} className="border-t">
+                  <td className="px-4 py-3"><Skeleton width="140px" height={16} /></td>
+                  <td className="px-4 py-3"><Skeleton width="220px" height={16} /></td>
+                  <td className="px-4 py-3"><Skeleton width="120px" height={16} /></td>
+                </tr>
+              ))
+            )}
+
+            {!loading && data.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-6 text-center text-sm text-muted-foreground">
-                  {loading ? "Loading…" : "No registrations found."}
+                <td colSpan={3} className="px-6 py-8">
+                  <EmptyState title="No registrations" description="No attendees have registered for this event yet." />
                 </td>
               </tr>
             )}
 
-            {data.map((row) => (
+            {!loading && data.map((row) => (
               <tr key={row.id} className="border-t">
                 <td className="px-4 py-3">{row.attendee.name}</td>
                 <td className="px-4 py-3">{row.attendee.email}</td>

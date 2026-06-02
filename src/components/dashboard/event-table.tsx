@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import EmptyState from "@/components/ui/empty-state";
 import { closeEventAction, deleteEventAction, reopenEventAction } from "@/app/(host)/host/dashboard/actions";
 import type { HostEventRow } from "@/lib/dashboard";
 
@@ -123,8 +124,8 @@ export function EventTable({ data }: Props) {
   return (
     <Card className="border-border/70 bg-card/90">
       <CardContent className="overflow-x-auto p-0">
-        <table className="w-full border-collapse text-left text-sm">
-          <thead className="border-b border-border/70 bg-muted/40">
+        <table className="premium-table">
+          <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -148,8 +149,8 @@ export function EventTable({ data }: Props) {
               ))
             ) : (
               <tr>
-                <td className="px-4 py-10 text-center text-sm text-muted-foreground" colSpan={columns.length}>
-                  No events yet. Create your first event to start collecting registrations.
+                <td className="px-6 py-8" colSpan={columns.length}>
+                  <EmptyState title="No events yet" description="Create your first event to start collecting registrations." />
                 </td>
               </tr>
             )}
