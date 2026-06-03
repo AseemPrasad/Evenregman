@@ -1,5 +1,4 @@
-"use client";
-
+import { Suspense } from "react";
 import Link from "next/link";
 
 import { LoginForm } from "@/components/auth/login-form";
@@ -20,7 +19,9 @@ export default function SignInPage() {
         </p>
       }
     >
-      <LoginForm />
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
     </AuthShell>
   );
 }

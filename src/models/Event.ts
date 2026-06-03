@@ -47,7 +47,6 @@ const eventSchema = new Schema<Event, EventModel>(
       type: String,
       required: [true, "Slug is required"],
       unique: true,
-      index: true,
       trim: true,
       lowercase: true,
       maxlength: [240, "Slug must be at most 240 characters"],
@@ -151,8 +150,6 @@ const eventSchema = new Schema<Event, EventModel>(
   }
 );
 
-eventSchema.index({ slug: 1 }, { unique: true });
-eventSchema.index({ hostId: 1 });
 eventSchema.index({ status: 1 });
 eventSchema.index({ date: 1 });
 
