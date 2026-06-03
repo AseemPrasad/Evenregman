@@ -137,17 +137,15 @@ const eventSchema = new Schema<Event, EventModel>(
     toJSON: {
       virtuals: true,
       transform(_document, returned) {
-        returned.id = returned._id.toString();
-        delete returned._id;
-        return returned;
+        const { _id, ...rest } = returned as { _id: Types.ObjectId; [key: string]: unknown };
+        return { ...rest, id: _id.toString() };
       }
     },
     toObject: {
       virtuals: true,
       transform(_document, returned) {
-        returned.id = returned._id.toString();
-        delete returned._id;
-        return returned;
+        const { _id, ...rest } = returned as { _id: Types.ObjectId; [key: string]: unknown };
+        return { ...rest, id: _id.toString() };
       }
     }
   }

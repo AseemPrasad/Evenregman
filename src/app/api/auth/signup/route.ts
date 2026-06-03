@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch {
+  } catch (error) {
+    console.error("Host signup failed:", error);
     return NextResponse.json({ error: "Unable to create host account" }, { status: 500 });
   }
 }

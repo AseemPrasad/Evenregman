@@ -71,9 +71,9 @@ async function updateEventStatus(eventId: string, nextStatus: EventStatus): Prom
     await assertEventOwnership(eventId, session.user.id);
     await connectToDatabase();
 
-    const existingEvent = await EventModel.findOne({ _id: eventId, hostId: session.user.id })
-      .select({ slug: 1 })
-      .lean();
+    const existingEvent = (await EventModel.findOne({ _id: eventId, hostId: session.user.id })
+      .select({ _id: 1, slug: 1 })
+      .lean()) as { _id: string; slug: string } | null;
 
     if (!existingEvent) {
       return { success: false, message: "Event not found." };
@@ -171,7 +171,23 @@ export async function updateEventAction(
 
   await connectToDatabase();
 
-  const existingEvent = await EventModel.findOne({ _id: eventId, hostId: session.user.id }).lean();
+  const existingEvent = (await EventModel.findOne({ _id: eventId, hostId: session.user.id })
+    .select({
+      _id: 1,
+      title: 1,
+      slug: 1,
+      attendeeCount: 1,
+      capacity: 1
+    })
+    .lean()) as
+    | {
+        _id: string;
+        title: string;
+        slug: string;
+        attendeeCount: number;
+        capacity: number;
+      }
+    | null;
 
   if (!existingEvent) {
     return {
@@ -180,7 +196,9 @@ export async function updateEventAction(
     };
   }
 
-  if (normalizedEvent.capacity < existingEvent.attendeeCount) {
+  const nextCapacity = normalizedEvent.capacity ?? existingEvent.capacity;
+
+  if (nextCapacity < existingEvent.attendeeCount) {
     return {
       success: false,
       message: "Capacity cannot be lower than the current attendee count."
@@ -193,7 +211,7 @@ export async function updateEventAction(
       : existingEvent.slug;
 
   try {
-    const updatedEvent = await EventModel.findOneAndUpdate(
+    const updatedEvent = (await EventModel.findOneAndUpdate(
       { _id: eventId, hostId: session.user.id },
       {
         $set: {
@@ -203,13 +221,19 @@ export async function updateEventAction(
           date: normalizedEvent.date,
           time: normalizedEvent.time,
           location: normalizedEvent.location,
-          capacity: normalizedEvent.capacity,
+          capacity: nextCapacity,
           registrationCutoff: normalizedEvent.registrationCutoff,
           updatedAt: new Date()
         }
       },
       { new: true, runValidators: true }
-    ).lean();
+    ).lean()) as
+      | {
+          _id: string;
+          slug: string;
+          title: string;
+        }
+      | null;
 
     if (!updatedEvent) {
       return {

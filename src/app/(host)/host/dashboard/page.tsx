@@ -3,6 +3,8 @@ import { canAccessHostRoute } from "@/lib/permissions";
 import { getHostDashboardData } from "@/lib/dashboard";
 import { OverviewCard } from "@/components/dashboard/overview-card";
 import { EventTable } from "@/components/dashboard/event-table";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export default async function HostDashboardPage() {
@@ -16,14 +18,20 @@ export default async function HostDashboardPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="space-y-2 pb-8">
-        <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-          Host dashboard
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Dashboard overview</h1>
-        <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-          Review event performance, manage status changes, and jump into event-specific actions.
-        </p>
+      <div className="flex flex-col gap-5 pb-8 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
+            Host dashboard
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Dashboard overview</h1>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+            Review event performance, manage status changes, and jump into event-specific actions.
+          </p>
+        </div>
+
+        <Button asChild size="lg" className="sm:self-start">
+          <Link href="/host/events/new">Create event</Link>
+        </Button>
       </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

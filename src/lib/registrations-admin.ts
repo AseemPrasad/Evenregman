@@ -9,7 +9,7 @@ import { toObjectId, assertEventOwnership, AuthorizationError } from "@/lib/owne
 export type RegistrationListItem = {
   id: string;
   status: string;
-  registeredAt: Date;
+  registeredAt: string;
   attendee: {
     id: string;
     name: string;
@@ -124,7 +124,7 @@ export async function getEventRegistrationsForHost(
   const data: RegistrationListItem[] = rawData.map((r) => ({
     id: r._id.toString(),
     status: r.status,
-    registeredAt: r.registeredAt,
+    registeredAt: new Date(r.registeredAt).toISOString(),
     attendee: {
       id: r.attendee._id.toString(),
       name: r.attendee.name,

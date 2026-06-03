@@ -5,8 +5,8 @@ import { redirect } from "next/navigation";
 import RegistrationTable from "@/components/registrations/registration-table";
 
 type Props = {
-  params: { eventId: string };
-  searchParams?: { [key: string]: string | string[] | undefined };
+  params: Promise<{ eventId: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export default async function Page({ params, searchParams }: Props) {
@@ -16,13 +16,17 @@ export default async function Page({ params, searchParams }: Props) {
     redirect("/signin");
   }
 
-  const page = Number((searchParams?.page as string) || 1);
-  const limit = Number((searchParams?.limit as string) || 20);
-  const search = typeof searchParams?.search === "string" ? (searchParams.search as string) : undefined;
-  const sort = typeof searchParams?.sort === "string" ? (searchParams.sort as any) : undefined;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const page = Number((resolvedSearchParams?.page as string) || 1);
+  const limit = Number((resolvedSearchParams?.limit as string) || 20);
+  const search =
+    typeof resolvedSearchParams?.search === "string" ? (resolvedSearchParams.search as string) : undefined;
+  const sort = typeof resolvedSearchParams?.sort === "string" ? (resolvedSearchParams.sort as any) : undefined;
 
   // server-side fetch initial page for faster first paint & ownership assert
-  const initial = await getEventRegistrationsForHost(params.eventId, session.user.id, {
+  const { eventId } = await params;
+
+  const initial = await getEventRegistrationsForHost(eventId, session.user.id, {
     page,
     limit,
     search,
@@ -36,7 +40,7 @@ export default async function Page({ params, searchParams }: Props) {
         <p className="text-sm text-muted-foreground">View attendee registrations for this event.</p>
       </div>
 
-      <RegistrationTable eventId={params.eventId} initialData={initial} />
+      <RegistrationTable eventId={eventId} initialData={initial} />
     </main>
   );
 }

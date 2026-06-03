@@ -3,14 +3,20 @@ import { connectToDatabase } from "@/lib/db";
 import { RegistrationModel } from "@/models/Registration";
 import { toObjectId, assertEventOwnership } from "@/lib/ownership";
 
-export async function GET(req: Request, { params }: { params: { eventId: string } }) {
+type RouteContext = {
+  params: Promise<{
+    eventId: string;
+  }>;
+};
+
+export async function GET(req: Request, { params }: RouteContext) {
   const session = await auth();
 
   if (!session?.user || session.user.role !== "HOST") {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
   }
 
-  const eventId = params.eventId;
+  const { eventId } = await params;
 
   const url = new URL(req.url);
   const mode = (url.searchParams.get("mode") || "name_email").toLowerCase();
@@ -38,7 +44,7 @@ export async function GET(req: Request, { params }: { params: { eventId: string 
 
     pipeline.push({ $project: { "attendee.name": 1, "attendee.email": 1 } });
 
-    const cursor = RegistrationModel.aggregate(pipeline).cursor({ batchSize: 1000 }).exec();
+    const cursor = RegistrationModel.aggregate(pipeline).cursor({ batchSize: 1000 });
 
     const filename = `registrations-${eventId}-${mode}.csv`;
 

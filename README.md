@@ -43,7 +43,8 @@ graph TD
 - **Soft Deletion**: The `DELETED` status hides events from public views and host listings while maintaining data integrity for reporting.
 
 ### 3. Account Management
-- **Unified Registration**: If an attendee registers with a new email, a `User` record is created. If the email exists, the system validates the password and reuses the account.
+- **Host Signup**: The `/signup` route creates a `HOST` account only.
+- **Unified Registration**: If an attendee registers with a new email on `/events/[slug]`, a `User` record is created. If the email exists, the system validates the password and reuses the account.
 - **Role Isolation**: A user with a `HOST` role cannot register for events as an `ATTENDEE` using the same account.
 
 ## User Flows
@@ -58,6 +59,8 @@ graph TD
 1. **Discovery**: Access public URL `/events/[slug]`.
 2. **Registration**: Fill in Name, Email, and Password.
 3. **Atomic Processing**: System checks capacity -> creates/verifies user -> increments count -> saves registration (all within one transaction).
+
+> Attendees do not use the host signup page. Their account is created automatically during event registration.
 
 ## Database Relationship Diagram
 
@@ -223,6 +226,7 @@ AUTH_URL=http://localhost:3000
 | Route | Access Level | Description |
 | :--- | :--- | :--- |
 | `/` | Public | Homepage / Landing (assumed). |
+| `/events` | Public | Public events listing page for attendees. |
 | `/events/[slug]` | Public | Public event details and registration form. |
 | `/host/dashboard` | Host | Overview of events and registration stats. |
 | `/host/events/new` | Host | Form to create a new event. |

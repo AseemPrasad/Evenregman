@@ -7,13 +7,12 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { registerAttendeeAction } from "@/app/(public)/events/[slug]/actions";
+import { registerForEventAction, type AttendeeRegistrationState } from "@/app/(public)/events/[slug]/actions";
 import { PasswordField } from "@/components/forms/password-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { attendeeRegistrationSchema, type AttendeeRegistrationInput } from "@/schemas/registration";
-import type { AttendeeRegistrationState } from "@/lib/attendee-registration";
 
 type EventRegistrationFormProps = {
   slug: string;
@@ -46,7 +45,7 @@ export function EventRegistrationForm({ slug, isRegistrationOpen, statusMessage 
   }, [actionState, form, router]);
 
   async function onSubmit(values: AttendeeRegistrationInput) {
-    const response = await registerAttendeeAction(slug, initialState, values);
+    const response = await registerForEventAction(slug, initialState, values);
     setActionState(response);
 
     if (!response.success) {

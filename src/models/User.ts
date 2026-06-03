@@ -71,23 +71,19 @@ const userSchema = new Schema<User, UserModel>(
     toJSON: {
       virtuals: true,
       transform(_document, returned) {
-        returned.id = returned._id.toString();
-        delete returned._id;
-        return returned;
+        const { _id, ...rest } = returned as { _id: Types.ObjectId; [key: string]: unknown };
+        return { ...rest, id: _id.toString() };
       }
     },
     toObject: {
       virtuals: true,
       transform(_document, returned) {
-        returned.id = returned._id.toString();
-        delete returned._id;
-        return returned;
+        const { _id, ...rest } = returned as { _id: Types.ObjectId; [key: string]: unknown };
+        return { ...rest, id: _id.toString() };
       }
     }
   }
 );
-
-userSchema.index({ email: 1 }, { unique: true });
 
 userSchema.pre("validate", function normalizeUserFields(next) {
   if (typeof this.email === "string") {

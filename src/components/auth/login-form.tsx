@@ -39,7 +39,7 @@ export function LoginForm() {
       return;
     }
 
-    router.push("/host/dashboard");
+    router.push("/dashboard");
     router.refresh();
   }
 

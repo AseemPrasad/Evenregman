@@ -1,7 +1,9 @@
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import type { Types } from "mongoose";
 
 import { env } from "@/lib/env";
+import type { User } from "@/models/User";
 
 export const authConfig = {
   secret: env.AUTH_SECRET,
@@ -28,12 +30,16 @@ export const authConfig = {
         }
 
         const { connectToDatabase } = await import("@/lib/db");
-  const { UserModel } = await import("@/models/User");
+        const { UserModel } = await import("@/models/User");
         const bcrypt = await import("bcryptjs");
 
         await connectToDatabase();
 
-        const user = await UserModel.findOne({ email }).lean();
+        const user = (await UserModel.findOne({ email })
+          .select({ _id: 1, name: 1, email: 1, passwordHash: 1, role: 1 })
+          .lean()) as
+          | (Pick<User, "name" | "email" | "passwordHash" | "role"> & { _id: Types.ObjectId })
+          | null;
 
         if (!user) {
           return null;

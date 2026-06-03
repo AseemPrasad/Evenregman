@@ -4,7 +4,7 @@ import { EventEditForm } from "@/components/forms/event-edit-form";
 import { auth } from "@/lib/session";
 import { canAccessHostRoute } from "@/lib/permissions";
 import { connectToDatabase } from "@/lib/db";
-import { EventModel } from "@/models/Event";
+import { EventModel, type Event } from "@/models/Event";
 import { assertEventOwnership, AuthorizationError } from "@/lib/ownership";
 
 type PageProps = {
@@ -34,7 +34,24 @@ export default async function EditEventPage({ params }: PageProps) {
 
   await connectToDatabase();
 
-  const event = await EventModel.findOne({ _id: eventId, hostId: session.user.id }).lean();
+  const event = (await EventModel.findOne({ _id: eventId, hostId: session.user.id })
+    .select({
+      _id: 1,
+      status: 1,
+      title: 1,
+      description: 1,
+      date: 1,
+      time: 1,
+      location: 1,
+      capacity: 1,
+      registrationCutoff: 1
+    })
+    .lean()) as
+    | Pick<
+        Event,
+        "_id" | "status" | "title" | "description" | "date" | "time" | "location" | "capacity" | "registrationCutoff"
+      >
+    | null;
 
   if (!event) {
     notFound();

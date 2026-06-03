@@ -3,14 +3,20 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/session";
 import { getEventRegistrationsForHost } from "@/lib/registrations-admin";
 
-export async function GET(req: Request, { params }: { params: { eventId: string } }) {
+type RouteContext = {
+  params: Promise<{
+    eventId: string;
+  }>;
+};
+
+export async function GET(req: Request, { params }: RouteContext) {
   const session = await auth();
 
   if (!session?.user || session.user.role !== "HOST") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const eventId = params.eventId;
+  const { eventId } = await params;
 
   const url = new URL(req.url);
   const page = Number(url.searchParams.get("page") || "1");

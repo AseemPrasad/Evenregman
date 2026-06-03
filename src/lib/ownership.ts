@@ -3,8 +3,8 @@ import "server-only";
 import { isValidObjectId, Types } from "mongoose";
 
 import { connectToDatabase } from "@/lib/db";
-import { EventModel } from "@/models/Event";
-import { RegistrationModel } from "@/models/Registration";
+import { EventModel, type Event } from "@/models/Event";
+import { RegistrationModel, type Registration } from "@/models/Registration";
 
 export class AuthorizationError extends Error {
   statusCode: number;
@@ -31,12 +31,12 @@ export function toObjectId(value: string | Types.ObjectId): Types.ObjectId {
 export async function assertEventOwnership(eventId: string | Types.ObjectId, hostId: string | Types.ObjectId) {
   await connectToDatabase();
 
-  const ownedEvent = await EventModel.findOne({
+  const ownedEvent = (await EventModel.findOne({
     _id: toObjectId(eventId),
     hostId: toObjectId(hostId)
   })
     .select({ _id: 1, hostId: 1 })
-    .lean();
+    .lean()) as Pick<Event, "_id" | "hostId"> | null;
 
   if (!ownedEvent) {
     throw new AuthorizationError("Forbidden", 403);
@@ -48,12 +48,12 @@ export async function assertEventOwnership(eventId: string | Types.ObjectId, hos
 export async function assertEventOwnershipBySlug(slug: string, hostId: string | Types.ObjectId) {
   await connectToDatabase();
 
-  const ownedEvent = await EventModel.findOne({
+  const ownedEvent = (await EventModel.findOne({
     slug: slug.trim().toLowerCase(),
     hostId: toObjectId(hostId)
   })
     .select({ _id: 1, hostId: 1 })
-    .lean();
+    .lean()) as Pick<Event, "_id" | "hostId"> | null;
 
   if (!ownedEvent) {
     throw new AuthorizationError("Forbidden", 403);
@@ -68,12 +68,12 @@ export async function assertRegistrationOwnership(
 ) {
   await connectToDatabase();
 
-  const ownedRegistration = await RegistrationModel.findOne({
+  const ownedRegistration = (await RegistrationModel.findOne({
     _id: toObjectId(registrationId),
     attendeeId: toObjectId(attendeeId)
   })
     .select({ _id: 1, attendeeId: 1, eventId: 1, status: 1 })
-    .lean();
+    .lean()) as Pick<Registration, "_id" | "attendeeId" | "eventId" | "status"> | null;
 
   if (!ownedRegistration) {
     throw new AuthorizationError("Forbidden", 403);
@@ -89,7 +89,7 @@ export async function assertHostOwnsEventRegistration(
 ) {
   await connectToDatabase();
 
-  const ownedRegistration = await RegistrationModel.findOne({
+  const ownedRegistration = (await RegistrationModel.findOne({
     _id: toObjectId(registrationId),
     eventId: toObjectId(eventId)
   })
@@ -99,7 +99,9 @@ export async function assertHostOwnsEventRegistration(
       select: { _id: 1, hostId: 1 }
     })
     .select({ _id: 1, attendeeId: 1, eventId: 1, status: 1 })
-    .lean();
+    .lean()) as
+    | (Pick<Registration, "_id" | "attendeeId" | "eventId" | "status"> & { eventId?: Pick<Event, "_id" | "hostId"> })
+    | null;
 
   if (!ownedRegistration || !ownedRegistration.eventId) {
     throw new AuthorizationError("Forbidden", 403);

@@ -5,9 +5,9 @@ import bcrypt from "bcryptjs";
 import { isValidObjectId } from "mongoose";
 
 import { connectToDatabase } from "@/lib/db";
-import { EventModel } from "@/models/Event";
-import { RegistrationModel } from "@/models/Registration";
-import { UserModel } from "@/models/User";
+import { EventModel, type Event } from "@/models/Event";
+import { RegistrationModel, type Registration } from "@/models/Registration";
+import { UserModel, type User } from "@/models/User";
 import { attendeeRegistrationSchema, type AttendeeRegistrationInput } from "@/schemas/registration";
 
 type RegistrationBusinessResult = {
@@ -63,12 +63,13 @@ export async function registerAttendeeForEvent(
     let registrationResult: RegistrationBusinessResult | null = null;
 
     await session.withTransaction(async () => {
-      const event = await EventModel.findOne({
+      const event = (await EventModel.findOne({
         slug: eventSlug.trim().toLowerCase(),
         status: "OPEN"
       })
         .session(session)
         .select({
+          _id: 1,
           title: 1,
           slug: 1,
           capacity: 1,
@@ -76,7 +77,9 @@ export async function registerAttendeeForEvent(
           registrationCutoff: 1,
           status: 1
         })
-        .lean();
+        .lean()) as
+        | Pick<Event, "_id" | "title" | "slug" | "capacity" | "attendeeCount" | "registrationCutoff" | "status">
+        | null;
 
       if (!event) {
         throw new Error("This event is not open for registration.");
@@ -90,7 +93,10 @@ export async function registerAttendeeForEvent(
         throw new Error("This event is sold out.");
       }
 
-      const existingUser = await UserModel.findOne({ email: normalizedEmail }).session(session).select({ passwordHash: 1, role: 1 }).lean();
+      const existingUser = (await UserModel.findOne({ email: normalizedEmail })
+        .session(session)
+        .select({ _id: 1, passwordHash: 1, role: 1 })
+        .lean()) as (Pick<User, "_id" | "passwordHash" | "role"> | null);
 
       let attendeeId: mongoose.Types.ObjectId;
       let accountState: "created" | "reused";
@@ -127,10 +133,10 @@ export async function registerAttendeeForEvent(
       }
 
       // check for existing registration for this attendee and event
-      const existingRegistration = await RegistrationModel.findOne({ eventId: event._id, attendeeId })
+      const existingRegistration = (await RegistrationModel.findOne({ eventId: event._id, attendeeId })
         .session(session)
         .select({ _id: 1 })
-        .lean();
+        .lean()) as Pick<Registration, "_id"> | null;
 
       if (existingRegistration) {
         throw new Error("You are already registered for this event.");
@@ -139,7 +145,7 @@ export async function registerAttendeeForEvent(
       const nextAttendeeCount = event.attendeeCount + 1;
       const nextStatus = nextAttendeeCount >= event.capacity ? "FULL" : "OPEN";
 
-      const reservedSeat = await EventModel.findOneAndUpdate(
+      const reservedSeat = (await EventModel.findOneAndUpdate(
         {
           _id: event._id,
           status: "OPEN",
@@ -151,7 +157,7 @@ export async function registerAttendeeForEvent(
           $set: { status: nextStatus, updatedAt: now }
         },
         { session, new: true }
-      ).lean();
+      ).lean()) as Pick<Event, "_id" | "attendeeCount" | "capacity" | "status"> | null;
 
       if (!reservedSeat) {
         throw new Error("Unable to reserve a seat. The event may have filled up.");

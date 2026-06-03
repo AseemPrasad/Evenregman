@@ -3,7 +3,7 @@ import "server-only";
 import { Types } from "mongoose";
 
 import { connectToDatabase } from "@/lib/db";
-import { EventModel, type EventStatus } from "@/models/Event";
+import { EventModel, type Event, type EventStatus } from "@/models/Event";
 import { RegistrationModel } from "@/models/Registration";
 
 export type HostDashboardStats = {
@@ -31,7 +31,7 @@ export async function getHostDashboardData(hostId: string) {
 
   const hostObjectId = new Types.ObjectId(hostId);
 
-  const [statsAggregate] = await EventModel.aggregate<HostDashboardStats>([
+  const [statsAggregate] = await EventModel.aggregate<{ counts?: HostDashboardStats[] }>([
     { $match: { hostId: hostObjectId } },
     {
       $facet: {
@@ -80,9 +80,10 @@ export async function getHostDashboardData(hostId: string) {
     registrationsByEvent.map((item) => [item._id.toString(), item.registrationCount])
   );
 
-  const events = await EventModel.find({ hostId })
+  const events = (await EventModel.find({ hostId })
     .sort({ createdAt: -1 })
     .select({
+      _id: 1,
       title: 1,
       slug: 1,
       date: 1,
@@ -92,7 +93,12 @@ export async function getHostDashboardData(hostId: string) {
       attendeeCount: 1,
       status: 1
     })
-    .lean();
+    .lean()) as unknown as Array<
+    Pick<
+      Event,
+      "_id" | "title" | "slug" | "date" | "time" | "location" | "capacity" | "attendeeCount" | "status"
+    >
+  >;
 
   const stats: HostDashboardStats = statsAggregate?.counts?.[0] ?? {
     totalEvents: 0,

@@ -79,42 +79,45 @@ function ActionsCell({ event }: { event: HostEventRow }) {
 }
 
 export function EventTable({ data }: Props) {
-  const columns = useMemo<ColumnDef<HostEventRow>[]>(() => [
-    {
-      accessorKey: "title",
-      header: "Title",
-      cell: ({ row }) => (
-        <div>
-          <div className="font-medium">{row.original.title}</div>
-          <div className="text-sm text-muted-foreground">/{row.original.slug}</div>
-        </div>
-      )
-    },
-    {
-      accessorKey: "date",
-      header: "Date",
-      cell: ({ row }) => formatEventDate(new Date(row.original.date))
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => <StatusPill status={row.original.status} />
-    },
-    {
-      accessorKey: "registrationCount",
-      header: "Registrations",
-      cell: ({ row }) => (
-        <div className="text-sm text-foreground">
-          {row.original.registrationCount} / {row.original.capacity}
-        </div>
-      )
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => <ActionsCell event={row.original} />
-    }
-  ];
+  const columns = useMemo<ColumnDef<HostEventRow>[]>(
+    () => [
+      {
+        accessorKey: "title",
+        header: "Title",
+        cell: ({ row }) => (
+          <div>
+            <div className="font-medium">{row.original.title}</div>
+            <div className="text-sm text-muted-foreground">/{row.original.slug}</div>
+          </div>
+        )
+      },
+      {
+        accessorKey: "date",
+        header: "Date",
+        cell: ({ row }) => formatEventDate(new Date(row.original.date))
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusPill status={row.original.status} />
+      },
+      {
+        accessorKey: "registrationCount",
+        header: "Registrations",
+        cell: ({ row }) => (
+          <div className="text-sm text-foreground">
+            {row.original.registrationCount} / {row.original.capacity}
+          </div>
+        )
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => <ActionsCell event={row.original} />
+      }
+    ],
+    []
+  );
 
   const table = useReactTable({
     data,
