@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "worker:outbox": "node --loader ts-node/esm src/workers/bootstrap.ts"
+    "worker:outbox": "node --loader ts-node/esm src/workers/bootstrap.ts",
+    "worker:export": "node --loader ts-node/esm src/workers/bootstrap.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
