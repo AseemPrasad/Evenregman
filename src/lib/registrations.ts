@@ -10,6 +10,7 @@ import { RegistrationModel, type Registration } from "@/models/Registration";
 import { UserModel, type User } from "@/models/User";
 import { attendeeRegistrationSchema, type AttendeeRegistrationInput } from "@/schemas/registration";
 import { redisCheckAndDecrement, redisRollbackIncrement } from "@/lib/redis-operations";
+import { metricsCollector } from "@/lib/registration-metrics";
 
 type RegistrationBusinessResult = {
   success: boolean;
@@ -46,10 +47,13 @@ export async function registerAttendeeForEvent(
   eventSlug: string,
   formValues: AttendeeRegistrationInput
 ): Promise<RegistrationBusinessResult> {
+  metricsCollector.recordRegistrationAttempt("legacy");
+
   const parsed = attendeeRegistrationSchema.safeParse(formValues);
 
   if (!parsed.success) {
     const message = Object.values(mapZodErrors(parsed.error)).find(Boolean) ?? "Please fix the highlighted fields.";
+    metricsCollector.recordRegistrationFailure("legacy", "validation_error");
     return { success: false, message };
   }
 
@@ -188,14 +192,20 @@ export async function registerAttendeeForEvent(
     });
 
     if (!registrationResult) {
+      metricsCollector.recordRegistrationFailure("legacy", "transaction_failed");
       return { success: false, message: "Unable to complete registration. Please try again." };
     }
 
+    metricsCollector.recordRegistrationSuccess("legacy", registrationResult.accountState);
     return registrationResult;
   } catch (error) {
     if (isDuplicateKeyError(error)) {
+      metricsCollector.recordRegistrationFailure("legacy", "duplicate_registration");
       return { success: false, message: "You are already registered for this event." };
     }
+
+    const errorReason = error instanceof Error ? error.message.toLowerCase().replace(/\s+/g, "_") : "unknown_error";
+    metricsCollector.recordRegistrationFailure("legacy", errorReason);
 
     if (error instanceof Error) {
       return { success: false, message: error.message };
@@ -211,10 +221,13 @@ export async function registerAttendeeForEventAtomic(
   eventSlug: string,
   formValues: AttendeeRegistrationInput
 ): Promise<RegistrationBusinessResult> {
+  metricsCollector.recordRegistrationAttempt("atomic");
+
   const parsed = attendeeRegistrationSchema.safeParse(formValues);
 
   if (!parsed.success) {
     const message = Object.values(mapZodErrors(parsed.error)).find(Boolean) ?? "Please fix the highlighted fields.";
+    metricsCollector.recordRegistrationFailure("atomic", "validation_error");
     return { success: false, message };
   }
 
@@ -266,6 +279,7 @@ export async function registerAttendeeForEventAtomic(
 
         if (!redisResult.success && redisResult.fallbackUsed) {
           usingRedisFallback = true;
+          metricsCollector.recordRedisFallback(event._id.toString(), redisResult.error ?? "unknown");
         } else if (redisResult.success) {
           redisSlotReserved = true;
         }
@@ -355,25 +369,33 @@ export async function registerAttendeeForEventAtomic(
     if (!registrationResult) {
       if (redisSlotReserved) {
         const compensateResult = await redisRollbackIncrement(eventSlug);
+        metricsCollector.recordCompensationAttempt(eventSlug, compensateResult.success);
         if (!compensateResult.success) {
           console.error(`[Atomic Registration] Failed to compensate Redis for event ${eventSlug}. Manual intervention required.`);
         }
       }
+      metricsCollector.recordRegistrationFailure("atomic", "transaction_failed");
       return { success: false, message: "Unable to complete registration. Please try again." };
     }
 
+    metricsCollector.recordRegistrationSuccess("atomic", registrationResult.accountState);
     return registrationResult;
   } catch (error) {
     if (redisSlotReserved) {
       const compensateResult = await redisRollbackIncrement(eventSlug);
+      metricsCollector.recordCompensationAttempt(eventSlug, compensateResult.success);
       if (!compensateResult.success) {
         console.error(`[Atomic Registration] Failed to compensate Redis for event ${eventSlug}. Manual intervention required.`);
       }
     }
 
     if (isDuplicateKeyError(error)) {
+      metricsCollector.recordRegistrationFailure("atomic", "duplicate_registration");
       return { success: false, message: "You are already registered for this event." };
     }
+
+    const errorReason = error instanceof Error ? error.message.toLowerCase().replace(/\s+/g, "_") : "unknown_error";
+    metricsCollector.recordRegistrationFailure("atomic", errorReason);
 
     if (error instanceof Error) {
       return { success: false, message: error.message };
