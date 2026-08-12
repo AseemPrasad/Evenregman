@@ -18,6 +18,7 @@ graph TD
 
 ### Key Architectural Patterns
 - **Atomic Operations**: Registration logic uses MongoDB transactions to prevent overbooking.
+- **Concurrency-Safe Capacity Reservation** (Optional): Two-tier atomic system using Redis Lua scripts (L1) + MongoDB ACID transactions (L2) for high-concurrency events. See [Atomic Reservations](./docs/ATOMIC_RESERVATIONS.md).
 - **Layered Validation**: Form-level validation (Client) -> Schema validation (Action) -> Semantic validation (Business Logic) -> Model constraints (Database).
 - **Route Groups**: Logical separation of `(host)` and `(public)` concerns without affecting the URL structure.
 
@@ -264,6 +265,7 @@ The project primarily uses **Next.js Server Actions** for data mutations:
 *   **Database Connection**: Ensure your IP is whitelisted in MongoDB Atlas if you encounter connection timeouts.
 *   **Auth Session**: If login fails, verify `AUTH_SECRET` is consistent across your environment.
 *   **Slug Generation**: If you receive a "Could not generate unique slug" error, try using more specific keywords in the event title.
+*   **High-Concurrency Events**: If you experience overselling during flash sales or popular events, enable the Atomic Reservation System (see [Atomic Reservations](./docs/ATOMIC_RESERVATIONS.md)).
 
 ## Future Improvements
 
