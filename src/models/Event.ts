@@ -24,7 +24,17 @@ export interface Event {
   updatedAt: Date;
 }
 
-export interface EventModel extends Model<Event> {}
+export type AtomicIncrementResult =
+  | { success: true; newCount: number }
+  | { success: false; reason: "SOLD_OUT" | "CONFLICT" };
+
+export interface EventModel extends Model<Event> {
+  atomicIncrementWithCapacityCheck(
+    eventId: string | Types.ObjectId,
+    capacity: number,
+    session?: any
+  ): Promise<AtomicIncrementResult>;
+}
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
@@ -197,5 +207,44 @@ eventSchema.pre("validate", function normalizeEventFields(next) {
 
   next();
 });
+
+eventSchema.statics.atomicIncrementWithCapacityCheck = async function (
+  eventId: string | Types.ObjectId,
+  capacity: number,
+  session?: any
+): Promise<AtomicIncrementResult> {
+  const updated = await this.findOneAndUpdate(
+    {
+      _id: eventId,
+      status: "OPEN",
+      attendeeCount: { $lt: capacity }
+    },
+    {
+      $inc: { attendeeCount: 1 },
+      $set: { updatedAt: new Date() }
+    },
+    {
+      session,
+      new: true,
+      lean: true
+    }
+  );
+
+  if (!updated) {
+    return { success: false, reason: "CONFLICT" };
+  }
+
+  const newCount = (updated as { attendeeCount: number }).attendeeCount;
+
+  if (newCount >= capacity) {
+    await this.findOneAndUpdate(
+      { _id: eventId },
+      { $set: { status: "FULL" } },
+      { session }
+    );
+  }
+
+  return { success: true, newCount };
+};
 
 export const EventModel = models.Event || model<Event, EventModel>("Event", eventSchema);
