@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { registerAttendeeForEvent } from "@/lib/registrations";
+import { registerAttendeeForEvent, registerAttendeeForEventAtomic } from "@/lib/registrations";
 import { attendeeRegistrationSchema } from "@/schemas/registration";
+import { env } from "@/lib/env";
 
 export type AttendeeRegistrationFormValues = z.infer<typeof attendeeRegistrationSchema>;
 
@@ -44,7 +45,10 @@ export async function registerForEventAction(
     };
   }
 
-  const result = await registerAttendeeForEvent(eventSlug, parsed.data);
+  const isAtomicEnabled = env.ENABLE_ATOMIC_REGISTRATIONS === "true";
+  const registrationFn = isAtomicEnabled ? registerAttendeeForEventAtomic : registerAttendeeForEvent;
+
+  const result = await registrationFn(eventSlug, parsed.data);
 
   if (result.success) {
     revalidatePath(`/events/${eventSlug}`);
