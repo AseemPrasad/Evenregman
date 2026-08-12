@@ -21,7 +21,11 @@ const envSchema = z.object({
   S3_BUCKET_NAME: z.string().optional().default(""),
   S3_REGION: z.string().optional().default("auto"),
   AWS_ACCESS_KEY_ID: z.string().optional().default(""),
-  AWS_SECRET_ACCESS_KEY: z.string().optional().default("")
+  AWS_SECRET_ACCESS_KEY: z.string().optional().default(""),
+  ENABLE_RBAC_ENGINE: z.enum(["true", "false"]).default("false"),
+  RBAC_AUTO_BOOTSTRAP_ORGS: z.enum(["true", "false"]).default("true"),
+  RBAC_AUDIT_RETENTION_DAYS: z.string().default("2555"),
+  RBAC_LOG_SENSITIVE_ACTIONS: z.enum(["true", "false"]).default("false")
 });
 
 const parsedEnv = envSchema.safeParse({
@@ -45,7 +49,11 @@ const parsedEnv = envSchema.safeParse({
   S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
   S3_REGION: process.env.S3_REGION,
   AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
-  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+  ENABLE_RBAC_ENGINE: process.env.ENABLE_RBAC_ENGINE,
+  RBAC_AUTO_BOOTSTRAP_ORGS: process.env.RBAC_AUTO_BOOTSTRAP_ORGS,
+  RBAC_AUDIT_RETENTION_DAYS: process.env.RBAC_AUDIT_RETENTION_DAYS,
+  RBAC_LOG_SENSITIVE_ACTIONS: process.env.RBAC_LOG_SENSITIVE_ACTIONS
 });
 
 if (!parsedEnv.success) {
