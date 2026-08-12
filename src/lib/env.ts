@@ -15,7 +15,13 @@ const envSchema = z.object({
   OUTBOX_MAX_RETRIES: z.string().default("5"),
   OUTBOX_MAX_RETRY_DELAY_MS: z.string().default("300000"),
   ENABLE_RATE_LIMITING: z.enum(["true", "false"]).default("false"),
-  RATE_LIMIT_STRICT_MODE: z.enum(["true", "false"]).default("false")
+  RATE_LIMIT_STRICT_MODE: z.enum(["true", "false"]).default("false"),
+  ENABLE_ASYNC_EXPORTS: z.enum(["true", "false"]).default("false"),
+  ASYNC_EXPORTS_WORKER_ENABLED: z.enum(["true", "false"]).default("false"),
+  S3_BUCKET_NAME: z.string().optional().default(""),
+  S3_REGION: z.string().optional().default("auto"),
+  AWS_ACCESS_KEY_ID: z.string().optional().default(""),
+  AWS_SECRET_ACCESS_KEY: z.string().optional().default("")
 });
 
 const parsedEnv = envSchema.safeParse({
@@ -33,7 +39,13 @@ const parsedEnv = envSchema.safeParse({
   OUTBOX_MAX_RETRIES: process.env.OUTBOX_MAX_RETRIES,
   OUTBOX_MAX_RETRY_DELAY_MS: process.env.OUTBOX_MAX_RETRY_DELAY_MS,
   ENABLE_RATE_LIMITING: process.env.ENABLE_RATE_LIMITING,
-  RATE_LIMIT_STRICT_MODE: process.env.RATE_LIMIT_STRICT_MODE
+  RATE_LIMIT_STRICT_MODE: process.env.RATE_LIMIT_STRICT_MODE,
+  ENABLE_ASYNC_EXPORTS: process.env.ENABLE_ASYNC_EXPORTS,
+  ASYNC_EXPORTS_WORKER_ENABLED: process.env.ASYNC_EXPORTS_WORKER_ENABLED,
+  S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
+  S3_REGION: process.env.S3_REGION,
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY
 });
 
 if (!parsedEnv.success) {
