@@ -2,6 +2,9 @@ import "server-only";
 
 import { connectToDatabase } from "@/lib/db";
 import { EventModel, type Event } from "@/models/Event";
+import { getCachedOrQuery } from "@/lib/cache-service";
+import { CACHE_KEYS } from "@/lib/cache-config";
+import { getCacheTTLConfig } from "@/lib/cache-config";
 
 export type PublicEvent = {
   title: string;
@@ -24,80 +27,99 @@ export type PublicEventSummary = Pick<
 export async function getPublicEventBySlug(slug: string): Promise<PublicEvent | null> {
   await connectToDatabase();
 
-  const event = (await EventModel.findOne({
-    slug: slug.trim().toLowerCase(),
-    status: { $ne: "DELETED" }
-  })
-    .select({
-      _id: 1,
-      title: 1,
-      slug: 1,
-      description: 1,
-      date: 1,
-      time: 1,
-      location: 1,
-      capacity: 1,
-      attendeeCount: 1,
-      registrationCutoff: 1,
-      status: 1
-    })
-    .lean()) as
-    | (Pick<
-        Event,
-        "_id" | "title" | "slug" | "description" | "date" | "time" | "location" | "capacity" | "attendeeCount" | "registrationCutoff" | "status"
-      >)
-    | null;
+  const cacheConfig = getCacheTTLConfig();
+  const normalizedSlug = slug.trim().toLowerCase();
+  const cacheKey = CACHE_KEYS.EVENT_BY_SLUG(normalizedSlug);
 
-  if (!event) {
-    return null;
-  }
+  return getCachedOrQuery(
+    cacheKey,
+    cacheConfig.events,
+    async () => {
+      const event = (await EventModel.findOne({
+        slug: normalizedSlug,
+        status: { $ne: "DELETED" }
+      })
+        .select({
+          _id: 1,
+          title: 1,
+          slug: 1,
+          description: 1,
+          date: 1,
+          time: 1,
+          location: 1,
+          capacity: 1,
+          attendeeCount: 1,
+          registrationCutoff: 1,
+          status: 1
+        })
+        .lean()) as
+        | (Pick<
+            Event,
+            "_id" | "title" | "slug" | "description" | "date" | "time" | "location" | "capacity" | "attendeeCount" | "registrationCutoff" | "status"
+          >)
+        | null;
 
-  return {
-    title: event.title,
-    slug: event.slug,
-    description: event.description,
-    date: event.date,
-    time: event.time,
-    location: event.location,
-    capacity: event.capacity,
-    attendeeCount: event.attendeeCount,
-    registrationCutoff: event.registrationCutoff,
-    status: event.status
-  };
+      if (!event) {
+        return null;
+      }
+
+      return {
+        title: event.title,
+        slug: event.slug,
+        description: event.description,
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        capacity: event.capacity,
+        attendeeCount: event.attendeeCount,
+        registrationCutoff: event.registrationCutoff,
+        status: event.status
+      };
+    }
+  );
 }
 
 export async function getPublicEvents(): Promise<PublicEventSummary[]> {
   await connectToDatabase();
 
-  const events = (await EventModel.find({
-    status: { $ne: "DELETED" }
-  })
-    .select({
-      _id: 1,
-      title: 1,
-      slug: 1,
-      date: 1,
-      time: 1,
-      location: 1,
-      capacity: 1,
-      attendeeCount: 1,
-      status: 1
-    })
-    .sort({ date: 1, createdAt: -1 })
-    .lean()) as unknown as Array<
-    Pick<Event, "_id" | "title" | "slug" | "date" | "time" | "location" | "capacity" | "attendeeCount" | "status">
-  >;
+  const cacheConfig = getCacheTTLConfig();
+  const cacheKey = CACHE_KEYS.EVENTS_LIST();
 
-  return events.map((event) => ({
-    title: event.title,
-    slug: event.slug,
-    date: event.date,
-    time: event.time,
-    location: event.location,
-    capacity: event.capacity,
-    attendeeCount: event.attendeeCount,
-    status: event.status
-  }));
+  return getCachedOrQuery(
+    cacheKey,
+    cacheConfig.eventsList,
+    async () => {
+      const events = (await EventModel.find({
+        status: { $ne: "DELETED" }
+      })
+        .select({
+          _id: 1,
+          title: 1,
+          slug: 1,
+          date: 1,
+          time: 1,
+          location: 1,
+          capacity: 1,
+          attendeeCount: 1,
+          status: 1
+        })
+        .sort({ date: 1, createdAt: -1 })
+        .lean()) as unknown as Array<
+        Pick<Event, "_id" | "title" | "slug" | "date" | "time" | "location" | "capacity" | "attendeeCount" | "status">
+      >;
+
+      return events.map((event) => ({
+        title: event.title,
+        slug: event.slug,
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        capacity: event.capacity,
+        attendeeCount: event.attendeeCount,
+        status: event.status
+      }));
+    }
+  );
 }
 
 export function formatPublicEventDate(date: Date) {
