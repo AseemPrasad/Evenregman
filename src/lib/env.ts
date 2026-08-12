@@ -6,7 +6,9 @@ const envSchema = z.object({
   AUTH_URL: z.string().url(),
   AUTH_SECRET: z.string().min(1),
   MONGODB_URI: z.string().min(1),
-  MONGODB_DB: z.string().min(1)
+  MONGODB_DB: z.string().min(1),
+  REDIS_URL: z.string().url().optional().default(""),
+  ENABLE_ATOMIC_REGISTRATIONS: z.enum(["true", "false"]).default("false")
 });
 
 const parsedEnv = envSchema.safeParse({
@@ -15,7 +17,9 @@ const parsedEnv = envSchema.safeParse({
   AUTH_URL: process.env.AUTH_URL,
   AUTH_SECRET: process.env.AUTH_SECRET,
   MONGODB_URI: process.env.MONGODB_URI,
-  MONGODB_DB: process.env.MONGODB_DB
+  MONGODB_DB: process.env.MONGODB_DB,
+  REDIS_URL: process.env.REDIS_URL,
+  ENABLE_ATOMIC_REGISTRATIONS: process.env.ENABLE_ATOMIC_REGISTRATIONS
 });
 
 if (!parsedEnv.success) {
