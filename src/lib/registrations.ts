@@ -11,6 +11,7 @@ import { UserModel, type User } from "@/models/User";
 import { attendeeRegistrationSchema, type AttendeeRegistrationInput } from "@/schemas/registration";
 import { redisCheckAndDecrement, redisRollbackIncrement } from "@/lib/redis-operations";
 import { metricsCollector } from "@/lib/registration-metrics";
+import { outboxPublisher } from "@/lib/outbox";
 
 type RegistrationBusinessResult = {
   success: boolean;
@@ -168,7 +169,7 @@ export async function registerAttendeeForEvent(
         throw new Error("Unable to reserve a seat. The event may have filled up.");
       }
 
-      await RegistrationModel.create(
+      const [createdRegistration] = await RegistrationModel.create(
         [
           {
             attendeeId,
@@ -179,6 +180,24 @@ export async function registerAttendeeForEvent(
           }
         ],
         { session }
+      );
+
+      await outboxPublisher.publishEvent(
+        session,
+        "REGISTRATION",
+        createdRegistration._id.toString(),
+        "REGISTRATION_CREATED",
+        {
+          registrationId: createdRegistration._id.toString(),
+          attendeeId: attendeeId.toString(),
+          attendeeEmail: normalizedEmail,
+          attendeeName: parsed.data.name,
+          eventId: event._id.toString(),
+          eventTitle: event.title,
+          eventSlug: event.slug,
+          eventDate: event.date.toISOString(),
+          eventTime: event.time
+        }
       );
 
       registrationResult = {
@@ -343,7 +362,7 @@ export async function registerAttendeeForEventAtomic(
         throw new Error("Unable to reserve a seat. The event may have filled up.");
       }
 
-      await RegistrationModel.create(
+      const [createdRegistrationAtomic] = await RegistrationModel.create(
         [
           {
             attendeeId,
@@ -354,6 +373,24 @@ export async function registerAttendeeForEventAtomic(
           }
         ],
         { session }
+      );
+
+      await outboxPublisher.publishEvent(
+        session,
+        "REGISTRATION",
+        createdRegistrationAtomic._id.toString(),
+        "REGISTRATION_CREATED",
+        {
+          registrationId: createdRegistrationAtomic._id.toString(),
+          attendeeId: attendeeId.toString(),
+          attendeeEmail: normalizedEmail,
+          attendeeName: parsed.data.name,
+          eventId: event._id.toString(),
+          eventTitle: event.title,
+          eventSlug: event.slug,
+          eventDate: event.date.toISOString(),
+          eventTime: event.time
+        }
       );
 
       registrationResult = {
