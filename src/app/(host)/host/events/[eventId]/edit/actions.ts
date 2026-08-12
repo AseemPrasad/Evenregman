@@ -10,6 +10,7 @@ import { EventModel, type EventStatus } from "@/models/Event";
 import { assertEventOwnership, AuthorizationError } from "@/lib/ownership";
 import { eventUpdateFormSchema, eventUpdateSchema } from "@/schemas/event";
 import { generateUniqueEventSlug } from "@/lib/slug";
+import { revalidateEventCache, revalidateEventsList } from "@/lib/cache-revalidation";
 
 export type UpdateEventFormValues = {
   title: string;
@@ -101,9 +102,12 @@ async function updateEventStatus(eventId: string, nextStatus: EventStatus): Prom
 
     await EventModel.updateOne({ _id: eventId }, { $set: update });
 
+    await revalidateEventCache(existingEvent.slug);
+    await revalidateEventsList();
+
     revalidatePath("/host/dashboard");
     revalidatePath(`/host/events/${eventId}/edit`);
-  revalidatePath(`/events/${existingEvent.slug}`);
+    revalidatePath(`/events/${existingEvent.slug}`);
 
     return { success: true, message: "Event updated successfully." };
   } catch (error) {
@@ -241,6 +245,12 @@ export async function updateEventAction(
         message: "Unable to update this event right now."
       };
     }
+
+    await revalidateEventCache(existingEvent.slug);
+    if (existingEvent.slug !== updatedEvent.slug) {
+      await revalidateEventCache(updatedEvent.slug);
+    }
+    await revalidateEventsList();
 
     revalidatePath("/host/dashboard");
     revalidatePath(`/host/events/${eventId}/edit`);
