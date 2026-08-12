@@ -5,6 +5,39 @@ import { model, models, Schema, type Model, type Types } from "mongoose";
 export const ORG_TIERS = ["STARTER", "PROFESSIONAL", "ENTERPRISE"] as const;
 export type OrgTier = (typeof ORG_TIERS)[number];
 
+export const IdP_TYPES = ["SAML", "OIDC"] as const;
+export type IdPType = (typeof IdP_TYPES)[number];
+
+export interface SAMLConfig {
+  entryPoint: string;
+  cert: string;
+  issuer: string;
+  identifierFormat?: string;
+  wantAssertionsSigned?: boolean;
+  logoutUrl?: string;
+}
+
+export interface OIDCConfig {
+  clientId: string;
+  clientSecret: string;
+  discoveryUrl: string;
+  authorizationEndpoint?: string;
+  tokenEndpoint?: string;
+  userinfoEndpoint?: string;
+}
+
+export interface IdentityProvider {
+  type: IdPType;
+  enabled: boolean;
+  emailDomain?: string;
+  config: SAMLConfig | OIDCConfig;
+  ssoDefaultRole?: "OWNER" | "ADMIN" | "EVENT_MANAGER" | "VIEWER";
+  groupRoleMapping?: Record<string, string>;
+  autoProvisioningEnabled?: boolean;
+  scimBearerTokenHash?: string;
+  scimTokenCreatedAt?: Date;
+}
+
 export interface Organization {
   _id: Types.ObjectId;
   name: string;
@@ -13,6 +46,7 @@ export interface Organization {
   customDomain?: string;
   ownerId: Types.ObjectId;
   isActive: boolean;
+  identityProvider?: IdentityProvider;
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
@@ -63,6 +97,42 @@ const organizationSchema = new Schema<Organization, OrganizationModel>(
       default: true,
       index: true
     },
+    identityProvider: {
+      type: {
+        type: String,
+        enum: IdP_TYPES,
+        sparse: true
+      },
+      enabled: {
+        type: Boolean,
+        default: false
+      },
+      emailDomain: {
+        type: String,
+        sparse: true,
+        lowercase: true,
+        index: true
+      },
+      config: Schema.Types.Mixed,
+      ssoDefaultRole: {
+        type: String,
+        enum: ["OWNER", "ADMIN", "EVENT_MANAGER", "VIEWER"],
+        default: "VIEWER"
+      },
+      groupRoleMapping: Schema.Types.Mixed,
+      autoProvisioningEnabled: {
+        type: Boolean,
+        default: false
+      },
+      scimBearerTokenHash: {
+        type: String,
+        sparse: true
+      },
+      scimTokenCreatedAt: {
+        type: Date,
+        sparse: true
+      }
+    },
     metadata: {
       type: Schema.Types.Mixed,
       default: {}
@@ -83,6 +153,7 @@ const organizationSchema = new Schema<Organization, OrganizationModel>(
 );
 
 organizationSchema.index({ ownerId: 1, createdAt: -1 });
+organizationSchema.index({ "identityProvider.emailDomain": 1, "identityProvider.enabled": 1 });
 
 export const OrganizationModel: OrganizationModel =
   models.Organization || model<Organization, OrganizationModel>("Organization", organizationSchema);

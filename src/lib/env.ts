@@ -30,7 +30,13 @@ const envSchema = z.object({
   CACHE_TTL_EVENTS: z.string().default("3600"),
   CACHE_TTL_EVENTS_LIST: z.string().default("300"),
   CACHE_COMPRESSION_ENABLED: z.enum(["true", "false"]).default("true"),
-  CACHE_COMPRESSION_THRESHOLD_BYTES: z.string().default("1024")
+  CACHE_COMPRESSION_THRESHOLD_BYTES: z.string().default("1024"),
+  ENABLE_ENTERPRISE_SSO: z.enum(["true", "false"]).default("false"),
+  SAML_STRICT: z.enum(["true", "false"]).default("true"),
+  OIDC_TIMEOUT_SECONDS: z.string().default("30"),
+  SCIM_RATE_LIMIT: z.string().default("100"),
+  SESSION_REVOCATION_ENABLED: z.enum(["true", "false"]).default("true"),
+  SESSION_REVOCATION_TTL_HOURS: z.string().default("168")
 });
 
 const parsedEnv = envSchema.safeParse({
@@ -63,7 +69,13 @@ const parsedEnv = envSchema.safeParse({
   CACHE_TTL_EVENTS: process.env.CACHE_TTL_EVENTS,
   CACHE_TTL_EVENTS_LIST: process.env.CACHE_TTL_EVENTS_LIST,
   CACHE_COMPRESSION_ENABLED: process.env.CACHE_COMPRESSION_ENABLED,
-  CACHE_COMPRESSION_THRESHOLD_BYTES: process.env.CACHE_COMPRESSION_THRESHOLD_BYTES
+  CACHE_COMPRESSION_THRESHOLD_BYTES: process.env.CACHE_COMPRESSION_THRESHOLD_BYTES,
+  ENABLE_ENTERPRISE_SSO: process.env.ENABLE_ENTERPRISE_SSO,
+  SAML_STRICT: process.env.SAML_STRICT,
+  OIDC_TIMEOUT_SECONDS: process.env.OIDC_TIMEOUT_SECONDS,
+  SCIM_RATE_LIMIT: process.env.SCIM_RATE_LIMIT,
+  SESSION_REVOCATION_ENABLED: process.env.SESSION_REVOCATION_ENABLED,
+  SESSION_REVOCATION_TTL_HOURS: process.env.SESSION_REVOCATION_TTL_HOURS
 });
 
 if (!parsedEnv.success) {
