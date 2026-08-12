@@ -13,7 +13,9 @@ const envSchema = z.object({
   OUTBOX_RELAY_ENABLED: z.enum(["true", "false"]).default("false"),
   OUTBOX_POLL_INTERVAL_MS: z.string().default("5000"),
   OUTBOX_MAX_RETRIES: z.string().default("5"),
-  OUTBOX_MAX_RETRY_DELAY_MS: z.string().default("300000")
+  OUTBOX_MAX_RETRY_DELAY_MS: z.string().default("300000"),
+  ENABLE_RATE_LIMITING: z.enum(["true", "false"]).default("false"),
+  RATE_LIMIT_STRICT_MODE: z.enum(["true", "false"]).default("false")
 });
 
 const parsedEnv = envSchema.safeParse({
@@ -29,7 +31,9 @@ const parsedEnv = envSchema.safeParse({
   OUTBOX_RELAY_ENABLED: process.env.OUTBOX_RELAY_ENABLED,
   OUTBOX_POLL_INTERVAL_MS: process.env.OUTBOX_POLL_INTERVAL_MS,
   OUTBOX_MAX_RETRIES: process.env.OUTBOX_MAX_RETRIES,
-  OUTBOX_MAX_RETRY_DELAY_MS: process.env.OUTBOX_MAX_RETRY_DELAY_MS
+  OUTBOX_MAX_RETRY_DELAY_MS: process.env.OUTBOX_MAX_RETRY_DELAY_MS,
+  ENABLE_RATE_LIMITING: process.env.ENABLE_RATE_LIMITING,
+  RATE_LIMIT_STRICT_MODE: process.env.RATE_LIMIT_STRICT_MODE
 });
 
 if (!parsedEnv.success) {
