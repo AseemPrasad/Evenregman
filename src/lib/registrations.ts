@@ -9,6 +9,7 @@ import { EventModel, type Event } from "@/models/Event";
 import { RegistrationModel, type Registration } from "@/models/Registration";
 import { UserModel, type User } from "@/models/User";
 import { attendeeRegistrationSchema, type AttendeeRegistrationInput } from "@/schemas/registration";
+import { redisCheckAndDecrement, redisRollbackIncrement } from "@/lib/redis-operations";
 
 type RegistrationBusinessResult = {
   success: boolean;
@@ -192,6 +193,179 @@ export async function registerAttendeeForEvent(
 
     return registrationResult;
   } catch (error) {
+    if (isDuplicateKeyError(error)) {
+      return { success: false, message: "You are already registered for this event." };
+    }
+
+    if (error instanceof Error) {
+      return { success: false, message: error.message };
+    }
+
+    return { success: false, message: "Unable to complete registration right now." };
+  } finally {
+    session.endSession();
+  }
+}
+
+export async function registerAttendeeForEventAtomic(
+  eventSlug: string,
+  formValues: AttendeeRegistrationInput
+): Promise<RegistrationBusinessResult> {
+  const parsed = attendeeRegistrationSchema.safeParse(formValues);
+
+  if (!parsed.success) {
+    const message = Object.values(mapZodErrors(parsed.error)).find(Boolean) ?? "Please fix the highlighted fields.";
+    return { success: false, message };
+  }
+
+  const normalizedEmail = parsed.data.email;
+  const now = new Date();
+
+  await connectToDatabase();
+
+  const session = await mongoose.startSession();
+  let redisSlotReserved = false;
+
+  try {
+    let registrationResult: RegistrationBusinessResult | null = null;
+
+    await session.withTransaction(async () => {
+      const event = (await EventModel.findOne({
+        slug: eventSlug.trim().toLowerCase(),
+        status: "OPEN"
+      })
+        .session(session)
+        .select({
+          _id: 1,
+          title: 1,
+          slug: 1,
+          capacity: 1,
+          attendeeCount: 1,
+          registrationCutoff: 1,
+          status: 1
+        })
+        .lean()) as
+        | Pick<Event, "_id" | "title" | "slug" | "capacity" | "attendeeCount" | "registrationCutoff" | "status">
+        | null;
+
+      if (!event) {
+        throw new Error("This event is not open for registration.");
+      }
+
+      if (event.registrationCutoff.getTime() <= now.getTime()) {
+        throw new Error("Registration cutoff has passed.");
+      }
+
+      if (!redisSlotReserved) {
+        const redisResult = await redisCheckAndDecrement(event._id.toString(), event.capacity);
+
+        if (!redisResult.success) {
+          throw new Error(redisResult.error === "SOLD_OUT" ? "This event is sold out." : "Unable to reserve seat.");
+        }
+
+        redisSlotReserved = true;
+      }
+
+      const existingUser = (await UserModel.findOne({ email: normalizedEmail })
+        .session(session)
+        .select({ _id: 1, passwordHash: 1, role: 1 })
+        .lean()) as (Pick<User, "_id" | "passwordHash" | "role"> | null);
+
+      let attendeeId: mongoose.Types.ObjectId;
+      let accountState: "created" | "reused";
+
+      if (existingUser) {
+        if (existingUser.role !== "ATTENDEE") {
+          throw new Error("This email belongs to a host account. Use an attendee email instead.");
+        }
+
+        const passwordMatches = await bcrypt.compare(parsed.data.password, existingUser.passwordHash);
+
+        if (!passwordMatches) {
+          throw new Error("Incorrect password for the existing attendee account.");
+        }
+
+        attendeeId = existingUser._id;
+        accountState = "reused";
+      } else {
+        const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+        const [createdUser] = await UserModel.create(
+          [
+            {
+              name: parsed.data.name,
+              email: normalizedEmail,
+              passwordHash,
+              role: "ATTENDEE"
+            }
+          ],
+          { session }
+        );
+
+        attendeeId = createdUser._id;
+        accountState = "created";
+      }
+
+      const existingRegistration = (await RegistrationModel.findOne({ eventId: event._id, attendeeId })
+        .session(session)
+        .select({ _id: 1 })
+        .lean()) as Pick<Registration, "_id"> | null;
+
+      if (existingRegistration) {
+        throw new Error("You are already registered for this event.");
+      }
+
+      const atomicIncrementResult = await EventModel.atomicIncrementWithCapacityCheck(
+        event._id,
+        event.capacity,
+        session
+      );
+
+      if (!atomicIncrementResult.success) {
+        throw new Error("Unable to reserve a seat. The event may have filled up.");
+      }
+
+      await RegistrationModel.create(
+        [
+          {
+            attendeeId,
+            eventId: event._id,
+            status: "ACTIVE",
+            registeredAt: now,
+            cancelledAt: null
+          }
+        ],
+        { session }
+      );
+
+      registrationResult = {
+        success: true,
+        message:
+          accountState === "created"
+            ? "Your attendee account has been created and your registration is confirmed."
+            : "Your existing attendee account has been reused and your registration is confirmed.",
+        accountState
+      };
+    });
+
+    if (!registrationResult) {
+      if (redisSlotReserved) {
+        const compensateResult = await redisRollbackIncrement(eventSlug);
+        if (!compensateResult.success) {
+          console.error(`[Atomic Registration] Failed to compensate Redis for event ${eventSlug}. Manual intervention required.`);
+        }
+      }
+      return { success: false, message: "Unable to complete registration. Please try again." };
+    }
+
+    return registrationResult;
+  } catch (error) {
+    if (redisSlotReserved) {
+      const compensateResult = await redisRollbackIncrement(eventSlug);
+      if (!compensateResult.success) {
+        console.error(`[Atomic Registration] Failed to compensate Redis for event ${eventSlug}. Manual intervention required.`);
+      }
+    }
+
     if (isDuplicateKeyError(error)) {
       return { success: false, message: "You are already registered for this event." };
     }
