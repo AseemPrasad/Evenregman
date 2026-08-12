@@ -3,6 +3,8 @@ import "server-only";
 import { SlidingWindowRateLimiter, type RateLimitResult } from "@/lib/rate-limiter";
 import { RATE_LIMIT_POLICIES, type RateLimitPolicy } from "@/lib/rate-limit-config";
 import { env } from "@/lib/env";
+import { rateLimitMetrics } from "@/lib/rate-limit-metrics";
+import { RateLimitError } from "@/lib/rate-limit-errors";
 
 const rateLimiters: Map<string, SlidingWindowRateLimiter> = new Map();
 
@@ -34,14 +36,29 @@ export async function applyRateLimit(
     };
   }
 
-  const limiter = getRateLimiter(policy);
-  const result = await limiter.checkRateLimit(identifier);
+  try {
+    const startTime = Date.now();
+    const limiter = getRateLimiter(policy);
+    const result = await limiter.checkRateLimit(identifier);
+    const latencyMs = Date.now() - startTime;
 
-  if (!result.allowed) {
-    console.warn(`[RateLimit] Violation: ${policy.name} for ${identifier}`);
+    rateLimitMetrics.recordCheck(latencyMs);
+
+    if (!result.allowed) {
+      console.warn(`[RateLimit] Violation: ${policy.name} for ${identifier}`);
+      rateLimitMetrics.recordViolation(policy.name, identifier, latencyMs);
+    }
+
+    return result;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[RateLimit] Error applying rate limit: ${errorMessage}`);
+    return {
+      allowed: true,
+      remaining: policy.max_requests,
+      reset_at: Date.now() + policy.window_ms
+    };
   }
-
-  return result;
 }
 
 export function createRateLimitHeaders(result: RateLimitResult): Record<string, string> {
@@ -58,22 +75,18 @@ export function createRateLimitHeaders(result: RateLimitResult): Record<string, 
   return headers;
 }
 
-export class RateLimitError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-    public readonly headers: Record<string, string>
-  ) {
-    super(message);
-    this.name = "RateLimitError";
-  }
-}
-
-export function createRateLimitError(result: RateLimitResult): RateLimitError {
+export function createRateLimitError(
+  result: RateLimitResult,
+  policyName: string,
+  identifier: string
+): RateLimitError {
   const headers = createRateLimitHeaders(result);
   return new RateLimitError(
-    429,
     "Too many requests",
-    headers
+    429,
+    headers,
+    policyName,
+    identifier,
+    result.retry_after
   );
 }

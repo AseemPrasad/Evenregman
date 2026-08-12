@@ -31,7 +31,7 @@ export const middleware = auth(async (request) => {
 		const result = await applyRateLimit(policy, identifier);
 
 		if (!result.allowed && env.RATE_LIMIT_STRICT_MODE === "true") {
-			const error = createRateLimitError(result);
+			const error = createRateLimitError(result, policy.name, identifier);
 			return NextResponse.json(
 				{ error: error.message },
 				{ status: error.status, headers: error.headers }

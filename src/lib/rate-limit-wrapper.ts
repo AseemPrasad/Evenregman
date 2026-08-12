@@ -1,6 +1,6 @@
 import "server-only";
 
-import { applyRateLimit, createRateLimitError } from "@/lib/rate-limit-hook";
+import { applyRateLimit, createRateLimitError, createRateLimitHeaders } from "@/lib/rate-limit-hook";
 import { RATE_LIMIT_POLICIES, type RateLimitPolicy } from "@/lib/rate-limit-config";
 import { env } from "@/lib/env";
 
@@ -35,7 +35,7 @@ export function withRateLimit<T extends any[], R>(
 
     // Check if allowed
     if (!result.allowed && env.RATE_LIMIT_STRICT_MODE === "true") {
-      const error = createRateLimitError(result);
+      const error = createRateLimitError(result, policyObj.name, identifier);
       throw error;
     }
 
