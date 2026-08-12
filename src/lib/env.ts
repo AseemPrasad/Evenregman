@@ -25,7 +25,12 @@ const envSchema = z.object({
   ENABLE_RBAC_ENGINE: z.enum(["true", "false"]).default("false"),
   RBAC_AUTO_BOOTSTRAP_ORGS: z.enum(["true", "false"]).default("true"),
   RBAC_AUDIT_RETENTION_DAYS: z.string().default("2555"),
-  RBAC_LOG_SENSITIVE_ACTIONS: z.enum(["true", "false"]).default("false")
+  RBAC_LOG_SENSITIVE_ACTIONS: z.enum(["true", "false"]).default("false"),
+  ENABLE_L2_CACHE: z.enum(["true", "false"]).default("false"),
+  CACHE_TTL_EVENTS: z.string().default("3600"),
+  CACHE_TTL_EVENTS_LIST: z.string().default("300"),
+  CACHE_COMPRESSION_ENABLED: z.enum(["true", "false"]).default("true"),
+  CACHE_COMPRESSION_THRESHOLD_BYTES: z.string().default("1024")
 });
 
 const parsedEnv = envSchema.safeParse({
@@ -53,7 +58,12 @@ const parsedEnv = envSchema.safeParse({
   ENABLE_RBAC_ENGINE: process.env.ENABLE_RBAC_ENGINE,
   RBAC_AUTO_BOOTSTRAP_ORGS: process.env.RBAC_AUTO_BOOTSTRAP_ORGS,
   RBAC_AUDIT_RETENTION_DAYS: process.env.RBAC_AUDIT_RETENTION_DAYS,
-  RBAC_LOG_SENSITIVE_ACTIONS: process.env.RBAC_LOG_SENSITIVE_ACTIONS
+  RBAC_LOG_SENSITIVE_ACTIONS: process.env.RBAC_LOG_SENSITIVE_ACTIONS,
+  ENABLE_L2_CACHE: process.env.ENABLE_L2_CACHE,
+  CACHE_TTL_EVENTS: process.env.CACHE_TTL_EVENTS,
+  CACHE_TTL_EVENTS_LIST: process.env.CACHE_TTL_EVENTS_LIST,
+  CACHE_COMPRESSION_ENABLED: process.env.CACHE_COMPRESSION_ENABLED,
+  CACHE_COMPRESSION_THRESHOLD_BYTES: process.env.CACHE_COMPRESSION_THRESHOLD_BYTES
 });
 
 if (!parsedEnv.success) {
