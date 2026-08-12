@@ -2,11 +2,13 @@ import "server-only";
 
 import { getRedisClient } from "@/lib/redis-client";
 import { LUA_SCRIPTS } from "@/lib/redis-lua-scripts";
+import { RedisTimeoutError, RedisUnavailableError, RedisCompensationFailedError } from "@/lib/redis-errors";
 
 type RedisOperationResult<T = unknown> = {
   success: boolean;
   data?: T;
   error?: string;
+  fallbackUsed?: boolean;
 };
 
 export async function redisCheckAndDecrement(
@@ -18,7 +20,8 @@ export async function redisCheckAndDecrement(
     const redis = await getRedisClient();
 
     if (!redis) {
-      return { success: false, error: "Redis unavailable" };
+      console.warn(`[Redis] Unavailable for checkAndDecrement on event ${eventId}. Proceeding with DB-only fallback.`);
+      return { success: false, error: "Redis unavailable", fallbackUsed: true };
     }
 
     const key = `event:${eventId}:capacity`;
@@ -26,7 +29,7 @@ export async function redisCheckAndDecrement(
     const result = await Promise.race([
       redis.eval(LUA_SCRIPTS.checkAndDecrement, 1, key, capacity, eventId),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Redis timeout")), timeoutMs)
+        setTimeout(() => reject(new RedisTimeoutError()), timeoutMs)
       )
     ]);
 
@@ -50,9 +53,14 @@ export async function redisCheckAndDecrement(
 
     return { success: false, error: "Unexpected Redis response" };
   } catch (error) {
+    if (error instanceof RedisTimeoutError) {
+      console.warn(`[Redis] checkAndDecrement timeout on event ${eventId}. Proceeding with DB-only fallback.`);
+      return { success: false, error: "timeout", fallbackUsed: true };
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn(`[Redis] checkAndDecrement failed: ${errorMessage}`);
-    return { success: false, error: errorMessage };
+    console.warn(`[Redis] checkAndDecrement failed on event ${eventId}: ${errorMessage}. Proceeding with DB-only fallback.`);
+    return { success: false, error: errorMessage, fallbackUsed: true };
   }
 }
 
@@ -64,6 +72,8 @@ export async function redisRollbackIncrement(
     const redis = await getRedisClient();
 
     if (!redis) {
+      const errorMsg = `Redis unavailable during rollback for event ${eventId}`;
+      console.error(`[Redis Compensation] ${errorMsg}. ALERT: Manual intervention may be required.`);
       return { success: false, error: "Redis unavailable" };
     }
 
@@ -72,7 +82,7 @@ export async function redisRollbackIncrement(
     const result = await Promise.race([
       redis.eval(LUA_SCRIPTS.rollbackIncrement, 1, key),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Redis timeout")), timeoutMs)
+        setTimeout(() => reject(new RedisTimeoutError()), timeoutMs)
       )
     ]);
 
@@ -82,13 +92,20 @@ export async function redisRollbackIncrement(
       "ok" in result &&
       typeof result.ok === "number"
     ) {
+      console.log(`[Redis Compensation] Successfully rolled back event ${eventId}. Capacity restored.`);
       return { success: true, data: result.ok };
     }
 
     return { success: false, error: "Unexpected Redis response" };
   } catch (error) {
+    if (error instanceof RedisTimeoutError) {
+      const errorMsg = `Redis timeout during rollback for event ${eventId}`;
+      console.error(`[Redis Compensation] ${errorMsg}. ALERT: Manual intervention may be required.`);
+      return { success: false, error: "timeout" };
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn(`[Redis] rollbackIncrement failed: ${errorMessage}`);
+    console.error(`[Redis Compensation] Rollback failed for event ${eventId}: ${errorMessage}. ALERT: Manual intervention may be required.`);
     return { success: false, error: errorMessage };
   }
 }

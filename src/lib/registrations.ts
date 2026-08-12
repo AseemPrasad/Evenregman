@@ -225,6 +225,7 @@ export async function registerAttendeeForEventAtomic(
 
   const session = await mongoose.startSession();
   let redisSlotReserved = false;
+  let usingRedisFallback = false;
 
   try {
     let registrationResult: RegistrationBusinessResult | null = null;
@@ -259,11 +260,15 @@ export async function registerAttendeeForEventAtomic(
       if (!redisSlotReserved) {
         const redisResult = await redisCheckAndDecrement(event._id.toString(), event.capacity);
 
-        if (!redisResult.success) {
-          throw new Error(redisResult.error === "SOLD_OUT" ? "This event is sold out." : "Unable to reserve seat.");
+        if (!redisResult.success && redisResult.error === "SOLD_OUT") {
+          throw new Error("This event is sold out.");
         }
 
-        redisSlotReserved = true;
+        if (!redisResult.success && redisResult.fallbackUsed) {
+          usingRedisFallback = true;
+        } else if (redisResult.success) {
+          redisSlotReserved = true;
+        }
       }
 
       const existingUser = (await UserModel.findOne({ email: normalizedEmail })
