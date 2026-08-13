@@ -1,0 +1,73 @@
+@layer base {
+  :root {
+    /* Store as CSS variables for dark theme (default) */
+    --bg-base: #090A0C;
+    --bg-surface-l1: #121418;
+    --bg-surface-l2: #1A1D24;
+    --bg-border: rgba(255, 255, 255, 0.07);
+
+    --signal-active: #F59E0B;
+    --signal-nominal: #10B981;
+    --signal-warning: #F97316;
+    --signal-critical: #EF4444;
+    --signal-action: #3B82F6;
+
+    --text-primary: #F8FAFC;
+    --text-secondary: rgba(148, 163, 184, 0.8);
+    --text-muted: rgba(100, 116, 139, 0.6);
+    --text-disabled: rgba(148, 163, 184, 0.3);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg-base: #FAFAFA;
+      --bg-surface-l1: #FFFFFF;
+      --bg-surface-l2: #F3F4F6;
+      --bg-border: rgba(0, 0, 0, 0.07);
+
+      --text-primary: #1F2937;
+      --text-secondary: rgba(55, 65, 81, 0.8);
+      --text-muted: rgba(107, 114, 128, 0.6);
+    }
+  }
+
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  }
+
+  code, pre {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  }
+}
+
+@layer components {
+  .premium-card {
+    @apply bg-[var(--bg-surface-l1)] border border-[var(--bg-border)] rounded-lg p-4;
+  }
+
+  .premium-button-primary {
+    @apply bg-[var(--signal-action)] text-white px-4 py-2 rounded-lg;
+    @apply hover:opacity-90 active:scale-95 transition-all disabled:opacity-50;
+  }
+
+  .premium-button-secondary {
+    @apply bg-[var(--bg-surface-l2)] text-[var(--text-primary)] px-4 py-2 rounded-lg;
+    @apply hover:bg-[var(--bg-border)] active:scale-95 transition-all disabled:opacity-50;
+  }
+
+  .premium-sync-indicator {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .premium-input {
+    @apply bg-[var(--bg-surface-l2)] border border-[var(--bg-border)] text-[var(--text-primary)];
+    @apply rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--signal-action)];
+  }
+
+  .premium-nav-link {
+    @apply px-4 py-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)];
+    @apply hover:bg-[var(--bg-surface-l2)] transition-colors;
+  }
+}
