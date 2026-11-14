@@ -41,6 +41,9 @@ export default function MeshLayout({
               <Link href="/mesh/audit" className="px-3 py-1.5 rounded-md hover:text-white hover:bg-slate-800 transition">
                 Live Audit Stream
               </Link>
+              <Link href="/mesh/settings/billing" className="px-3 py-1.5 rounded-md hover:text-white hover:bg-slate-800 transition">
+                Entitlements & Usage
+              </Link>
             </nav>
           </div>
 
