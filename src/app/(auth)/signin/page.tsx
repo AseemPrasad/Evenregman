@@ -4,6 +4,22 @@ import Link from "next/link";
 import { LoginForm } from "@/components/auth/login-form";
 import { AuthShell } from "@/components/auth/auth-shell";
 
+function LoginFormSkeleton() {
+  return (
+    <div className="space-y-5 animate-pulse">
+      <div className="space-y-2">
+        <div className="h-4 w-12 bg-muted rounded" />
+        <div className="h-10 w-full bg-muted/60 rounded-md" />
+      </div>
+      <div className="space-y-2">
+        <div className="h-4 w-16 bg-muted rounded" />
+        <div className="h-10 w-full bg-muted/60 rounded-md" />
+      </div>
+      <div className="h-10 w-full bg-muted rounded-md" />
+    </div>
+  );
+}
+
 export default function SignInPage() {
   return (
     <AuthShell
@@ -19,7 +35,7 @@ export default function SignInPage() {
         </p>
       }
     >
-      <Suspense fallback={null}>
+      <Suspense fallback={<LoginFormSkeleton />}>
         <LoginForm />
       </Suspense>
     </AuthShell>

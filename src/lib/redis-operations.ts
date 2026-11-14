@@ -110,6 +110,19 @@ export async function redisRollbackIncrement(
   }
 }
 
+export async function redisSyncEventCapacity(
+  eventId: string,
+  remainingSlots: number
+): Promise<void> {
+  try {
+    const redis = getRedisClient();
+    const key = `event:${eventId}:capacity`;
+    await redis.set(key, Math.max(0, remainingSlots).toString());
+  } catch (err) {
+    console.warn(`[Redis] Failed to sync capacity for event ${eventId}:`, err);
+  }
+}
+
 export async function redisSeedCapacity(
   eventId: string,
   capacity: number,
