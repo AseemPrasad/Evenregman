@@ -2,11 +2,15 @@ import "server-only";
 
 import type { OutboxEvent } from "@/models/OutboxEvent";
 import { HandlerError, type EventHandler } from "@/workers/event-handlers/base";
+import { sendEmail, buildCancellationHtml } from "@/lib/email";
 
 type RegistrationCancelledPayload = {
   registrationId: string;
   attendeeId?: string;
+  attendeeEmail?: string;
+  attendeeName?: string;
   eventId?: string;
+  eventTitle?: string;
   eventSlug?: string;
   cancelledByHost?: boolean;
   cancelledAt?: string;
@@ -21,11 +25,17 @@ export class RegistrationCancelledHandler implements EventHandler {
 
       console.log(`[Handler] Processing REGISTRATION_CANCELLED for registration ${payload.registrationId}`);
 
-      // Placeholder for downstream actions:
-      // - Send cancellation confirmation email
-      // - Trigger waitlist promotion
-      // - Release external seat reservation
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      if (payload.attendeeEmail) {
+        await sendEmail({
+          to: payload.attendeeEmail,
+          subject: `Cancelled: ${payload.eventTitle || "Your Registration"}`,
+          html: buildCancellationHtml({
+            attendeeName: payload.attendeeName || "Attendee",
+            eventTitle: payload.eventTitle || "Event",
+            registrationId: payload.registrationId
+          })
+        });
+      }
 
       console.log(`[Handler] REGISTRATION_CANCELLED processed for registration ${payload.registrationId}`);
     } catch (error) {
@@ -37,4 +47,3 @@ export class RegistrationCancelledHandler implements EventHandler {
 }
 
 export const registrationCancelledHandler = new RegistrationCancelledHandler();
-

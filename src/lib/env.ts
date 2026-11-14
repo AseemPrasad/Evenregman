@@ -52,7 +52,20 @@ const envSchema = z.object({
   OTEL_SERVICE_NAME: z.string().default("evenregman"),
   OTEL_SERVICE_VERSION: z.string().default("1.0.0"),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default("http://localhost:4318/v1/traces"),
-  OTEL_SAMPLE_RATE: z.string().default("1.0")
+  OTEL_SAMPLE_RATE: z.string().default("1.0"),
+
+  // Transactional Email Configuration
+  ENABLE_EMAIL_DISPATCH: z.enum(["true", "false"]).default("false"),
+  EMAIL_FROM: z.string().default("noreply@resmesh.io"),
+  EMAIL_SERVER_HOST: z.string().optional().default(""),
+  EMAIL_SERVER_PORT: z.string().default("587"),
+  EMAIL_SERVER_USER: z.string().optional().default(""),
+  EMAIL_SERVER_PASSWORD: z.string().optional().default(""),
+
+  // Stripe Billing & Monetization Configuration
+  ENABLE_STRIPE_BILLING: z.enum(["true", "false"]).default("false"),
+  STRIPE_SECRET_KEY: z.string().optional().default(""),
+  STRIPE_WEBHOOK_SECRET: z.string().optional().default("")
 });
 
 const parsedEnv = envSchema.safeParse({
@@ -105,7 +118,18 @@ const parsedEnv = envSchema.safeParse({
   OTEL_SERVICE_NAME: process.env.OTEL_SERVICE_NAME,
   OTEL_SERVICE_VERSION: process.env.OTEL_SERVICE_VERSION,
   OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-  OTEL_SAMPLE_RATE: process.env.OTEL_SAMPLE_RATE
+  OTEL_SAMPLE_RATE: process.env.OTEL_SAMPLE_RATE,
+
+  ENABLE_EMAIL_DISPATCH: process.env.ENABLE_EMAIL_DISPATCH,
+  EMAIL_FROM: process.env.EMAIL_FROM,
+  EMAIL_SERVER_HOST: process.env.EMAIL_SERVER_HOST,
+  EMAIL_SERVER_PORT: process.env.EMAIL_SERVER_PORT,
+  EMAIL_SERVER_USER: process.env.EMAIL_SERVER_USER,
+  EMAIL_SERVER_PASSWORD: process.env.EMAIL_SERVER_PASSWORD,
+
+  ENABLE_STRIPE_BILLING: process.env.ENABLE_STRIPE_BILLING,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET
 });
 
 if (!parsedEnv.success) {
