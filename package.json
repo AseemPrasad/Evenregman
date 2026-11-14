@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "worker:outbox": "node --loader ts-node/esm src/workers/bootstrap.ts",
-    "worker:export": "node --loader ts-node/esm src/workers/bootstrap.ts"
+    "worker:export": "node --loader ts-node/esm src/workers/bootstrap.ts",
+    "test:concurrency": "node --loader ts-node/esm scripts/load-test-concurrency.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

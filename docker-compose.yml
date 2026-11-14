@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Local MongoDB Replica Set (required for Change Streams & ACID Transactions)
+  mongo:
+    image: mongo:7.0
+    container_name: evenregman-mongo
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate() }" | mongosh --port 27017 --quiet
+      interval: 5s
+      timeout: 30s
+      start_period: 0s
+      retries: 30
+
+  # Redis In-Memory Store (for L1 Lua locks and rate limiting)
+  redis:
+    image: redis:7-alpine
+    container_name: evenregman-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
+  # Stateless Web App (Next.js 15)
+  web:
+    build:
+      context: .
+      target: web
+    container_name: evenregman-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongo:27017/evenregman?replicaSet=rs0
+      - REDIS_URL=redis://redis:6379
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=development-secret-key-32-chars-long!!
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # Stateful Background Daemon (Outbox Relay + CDC + Lease Reaper)
+  worker:
+    build:
+      context: .
+      target: worker
+    container_name: evenregman-worker
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongo:27017/evenregman?replicaSet=rs0
+      - REDIS_URL=redis://redis:6379
+      - OUTBOX_RELAY_ENABLED=true
+      - MESH_LEASE_REAPER_ENABLED=true
+      - OUTBOX_POLL_INTERVAL_MS=3000
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+volumes:
+  mongo-data:
+  redis-data:
+

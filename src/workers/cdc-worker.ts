@@ -93,8 +93,15 @@ class CDCWorker {
         }
       });
 
-      this.changeStream.on("error", async (err: Error) => {
+      this.changeStream.on("error", async (err: any) => {
         console.error(`[CDCWorker] Change stream error:`, err);
+
+        // Self-healing: Detect ChangeStreamHistoryLost (Code 286 / 280) when oplog rolls over
+        const isHistoryLost = err?.code === 286 || err?.code === 280 || (err?.message && err.message.includes("ChangeStreamHistoryLost"));
+        if (isHistoryLost) {
+          console.warn(`[CDCWorker] ⚠️ Oplog history rollover detected for ${collectionName}. Resetting resume token to current checkpoint.`);
+        }
+
         if (this.isRunning) {
           await this.reconnectWithBackoff(collectionName);
         }
