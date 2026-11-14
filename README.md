@@ -1,274 +1,172 @@
-# evenregman
+<p align="center">
+  <img src="./docs/assets/resmesh-banner.svg" alt="evenregman // ResMesh Banner" width="100%" />
+</p>
 
-A robust Event Registration Management system built with Next.js 15, designed to facilitate event creation for hosts and seamless registration for attendees.
+<p align="center">
+  <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js-15.5.29-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js 15" /></a>
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19.3.1-23272f?style=for-the-badge&logo=react&logoColor=61dafb" alt="React 19" /></a>
+  <a href="https://www.mongodb.com/"><img src="https://img.shields.io/badge/MongoDB-Replica_Set_ACID-001e2b?style=for-the-badge&logo=mongodb&logoColor=00ed64" alt="MongoDB" /></a>
+  <a href="https://redis.io/"><img src="https://img.shields.io/badge/Redis-Lua_Atomic_Locks-1e1e1e?style=for-the-badge&logo=redis&logoColor=dc382d" alt="Redis" /></a>
+  <a href="https://aws.amazon.com/s3/"><img src="https://img.shields.io/badge/AWS-S3_SigV4-232f3e?style=for-the-badge&logo=amazon-aws&logoColor=ff9900" alt="AWS S3" /></a>
+  <a href="https://stripe.com/"><img src="https://img.shields.io/badge/Stripe-Metered_Billing-0a2540?style=for-the-badge&logo=stripe&logoColor=635bff" alt="Stripe" /></a>
+  <a href="https://opentelemetry.io/"><img src="https://img.shields.io/badge/OpenTelemetry-Tracing-24292e?style=for-the-badge&logo=opentelemetry&logoColor=f5a800" alt="OTel" /></a>
+</p>
 
-## System Architecture
+<p align="center">
+  <strong>An enterprise-grade, high-throughput dual-engine distributed platform.</strong><br>
+  Built on Next.js 15 App Router, Redis Lua in-memory fast-path locking, MongoDB Replica Set ACID transactions, and a Transactional Outbox relay.
+</p>
 
-The application follows a modern Next.js 15 App Router architecture, leveraging Server Actions for all data mutations and Mongoose for structured data persistence.
+<p align="center">
+  <a href="#-dual-engine-architecture">Dual Engines</a> •
+  <a href="#-why-this-architecture">Architecture Highlights</a> •
+  <a href="#-interactive-concurrency-lifecycle">Concurrency Flow</a> •
+  <a href="#-complete-documentation-hub">Documentation</a> •
+  <a href="#-60-second-quickstart">Quickstart</a> •
+  <a href="#-concurrency--load-testing">Load Testing</a>
+</p>
 
-```mermaid
-graph TD
-    Client[Browser / Client Component] -->|Server Actions| Actions[Server Actions / Layer]
-    Actions -->|Validate| Zod[Zod Schemas]
-    Actions -->|Auth| AuthJS[Auth.js v5]
-    Actions -->|Business Logic| Services[Lib / Services]
-    Services -->|Query/Transact| Mongoose[Mongoose Models]
-    Mongoose -->|Persist| MongoDB[(MongoDB Atlas)]
-```
+---
 
-### Key Architectural Patterns
-- **Atomic Operations**: Registration logic uses MongoDB transactions to prevent overbooking.
-- **Concurrency-Safe Capacity Reservation** (Optional): Two-tier atomic system using Redis Lua scripts (L1) + MongoDB ACID transactions (L2) for high-concurrency events. See [Atomic Reservations](./docs/ATOMIC_RESERVATIONS.md).
-- **Layered Validation**: Form-level validation (Client) -> Schema validation (Action) -> Semantic validation (Business Logic) -> Model constraints (Database).
-- **Route Groups**: Logical separation of `(host)` and `(public)` concerns without affecting the URL structure.
+## 🏛️ Dual-Engine Architecture
 
-## Project Description
+<p align="center">
+  <img src="./docs/assets/dual-engine-cards.svg" alt="evenregman vs ResMesh Cards" width="100%" />
+</p>
 
-`evenregman` is a full-stack web application that streamlines the lifecycle of event management.
+---
 
-*   **Users**: The system supports two primary roles: **Hosts** (organizers) and **Attendees** (participants).
-*   **Main Business Flow**: Hosts create events with specific capacities and registration cutoffs. Attendees visit public event pages to register. The system handles account creation or reuse automatically during the registration process.
-*   **Core Functionality**: Atomic registrations using MongoDB transactions, role-based access control, unique slug generation for SEO-friendly URLs, and real-time capacity management.
+## ⚡ Why This Architecture?
 
-## Business Rules
+Traditional SaaS applications and naive CRUD clones fail catastrophically under burst traffic. Here is how `evenregman // ResMesh` compares against standard implementations:
 
-### 1. Registration Constraints
-- **Cutoff Date**: Users cannot register for an event if the current system time is past the `registrationCutoff`.
-- **Capacity**: Registrations are blocked once `attendeeCount >= capacity`.
-- **Unique Registration**: A user (identified by email) can only have one active registration per event.
-- **Status Dependency**: Only events with the status `OPEN` accept registrations.
+| Operational Dimension | Standard Web Apps / Naive CRUD | `evenregman // ResMesh` Engine |
+|---|---|---|
+| **Peak Concurrency** | ❌ Vulnerable to TOCTOU race conditions; database locks oversell seats | ⚡ **Atomic Redis Lua L1 Lock**: Sub-ms in-memory decrement with **zero overselling guarantee** |
+| **Data Consistency** | ❌ Dual-write anomalies: external network call succeeds while DB write fails | 🛡️ **Transactional Outbox**: Business mutations & event records commit in the same atomic session |
+| **Cloud Environments** | ❌ Zombie environments run indefinitely, hoarding massive cloud bills | ⏳ **Self-Healing TTL Leases**: 60s background sweeper daemon atomically reclaims slots |
+| **Enterprise Identity** | ❌ Manual employee account creation and spreadsheet rosters | 🏢 **SCIM v2 Protocol**: Automated directory sync with Okta, Azure AD, CyberArk |
+| **S3 Export Storage** | ❌ Synchronous CSV creation blocks the HTTP server thread pool | ☁️ **Async AWS SigV4 Streaming**: Background BullMQ workers with JIT pre-signed download URLs |
+| **Revenue & Monetization** | ❌ Static credit card forms with flat subscription tiers | 💳 **Stripe Metered Billing**: Automated usage reporting based on live hourly compute burn rate |
 
-### 2. Event Lifecycle
-- **Slug Generation**: Slugs are derived from titles. If a collision occurs, the system attempts up to 25 variations before failing.
-- **Automatic Full Status**: When the final seat is taken, the event status automatically transitions from `OPEN` to `FULL`.
-- **Soft Deletion**: The `DELETED` status hides events from public views and host listings while maintaining data integrity for reporting.
+---
 
-### 3. Account Management
-- **Host Signup**: The `/signup` route creates a `HOST` account only.
-- **Unified Registration**: If an attendee registers with a new email on `/events/[slug]`, a `User` record is created. If the email exists, the system validates the password and reuses the account.
-- **Role Isolation**: A user with a `HOST` role cannot register for events as an `ATTENDEE` using the same account.
+## 🔄 Interactive Concurrency Lifecycle
 
-## User Flows
-
-### Host Flow
-1. **Sign In**: Host authenticates via Credentials.
-2. **Dashboard**: View high-level metrics (Active vs. Closed events).
-3. **Event Creation**: Input event metadata. The system generates a unique slug.
-4. **Management**: Edit event details or toggle status (Open/Close/Delete).
-
-### Attendee Flow
-1. **Discovery**: Access public URL `/events/[slug]`.
-2. **Registration**: Fill in Name, Email, and Password.
-3. **Atomic Processing**: System checks capacity -> creates/verifies user -> increments count -> saves registration (all within one transaction).
-
-> Attendees do not use the host signup page. Their account is created automatically during event registration.
-
-## Database Relationship Diagram
+How a reservation request travels from a user click to an atomic commit without database contention:
 
 ```mermaid
-erDiagram
-    USER ||--o{ EVENT : "hosts"
-    USER ||--o{ REGISTRATION : "attends"
-    EVENT ||--o{ REGISTRATION : "contains"
+sequenceDiagram
+    autonumber
+    actor Client as User / Automation Client
+    participant App as Next.js 15 Server Action
+    participant Redis as Redis L1 (In-Memory Lua)
+    participant Mongo as MongoDB Replica Set (ACID L2)
+    participant Outbox as Transactional Outbox
+    participant Daemon as Background Relay Worker
+    participant Cloud as Cloud Services (AWS / Stripe / SMTP)
 
-    USER {
-        ObjectId _id
-        string name
-        string email
-        string passwordHash
-        string role "HOST | ATTENDEE"
-    }
-    EVENT {
-        ObjectId _id
-        ObjectId hostId
-        string slug
-        int capacity
-        int attendeeCount
-        string status "OPEN | FULL | CLOSED | DELETED"
-    }
-    REGISTRATION {
-        ObjectId _id
-        ObjectId attendeeId
-        ObjectId eventId
-        string status "ACTIVE | CANCELLED"
-    }
+    Client->>App: POST /events/[slug]/register or /api/mesh/leases
+    Note over App,Redis: Step 1: Sub-millisecond fast-path check
+    App->>Redis: EVALSHA redisCheckAndDecrement
+    alt Capacity Exhausted (Counter <= 0)
+        Redis-->>App: 0 (Capacity Depleted)
+        App-->>Client: 409 Conflict ("Event Sold Out / Pool Full")
+    else Slot Reserved (Counter > 0)
+        Redis-->>App: Remaining Capacity Count
+        Note over App,Mongo: Step 2: Multi-Document ACID Session
+        App->>Mongo: session.withTransaction()
+        Mongo->>Mongo: Create Registration / Lease Entity
+        Mongo->>Mongo: Increment Attendee / Occupied Counter
+        Mongo->>Outbox: Insert OutboxEvent (Status: PENDING)
+        Mongo-->>App: Transaction Committed Successfully
+        App-->>Client: 201 Created (Ticket ID / Bearer Token Granted)
+    end
+
+    Note over Outbox,Daemon: Step 3: Asynchronous Guaranteed Delivery
+    loop Continuous Polling Loop
+        Daemon->>Outbox: findOneAndUpdate({ status: 'PENDING' }, { $set: { status: 'PROCESSING' } })
+        Daemon->>Cloud: Deliver SMTP Email / Upload S3 CSV / Report Stripe Meter
+        alt Operation Succeeded
+            Daemon->>Outbox: updateOne({ status: 'COMPLETED' })
+        else Operation Failed
+            Daemon->>Outbox: Exponential Backoff (Attempt N/5)
+        end
+    end
 ```
 
-## Features
+---
 
-### Host Features
-*   **Event Lifecycle Management**: Create, edit, close, reopen, and soft-delete events.
-*   **Dashboard**: Overview of total events, active/closed status, and total registration metrics.
-*   **Registration Tracking**: View and filter lists of attendees for specific events with search and sorting capabilities.
-*   **Ownership Security**: Strict validation ensuring hosts can only manage their own events.
+## 📚 Complete Documentation Hub
 
-### Attendee Features
-*   **Public Event Discovery**: View event details including date, time, location, and remaining seats.
-*   **Integrated Registration**: Register for events via a unified form that creates a new attendee account or logs into an existing one.
-*   **Seat Reservation**: Real-time validation to prevent overbooking and registrations past the cutoff date.
+The project includes an extensive, enterprise-grade documentation suite located in [`docs/`](./docs):
 
-### Shared Features
-*   **Authentication**: Secure login and session management for both roles.
-*   **Responsive Design**: Modern UI built with Tailwind CSS and Radix UI components.
+| Guide | Description |
+|---|---|
+| [**01. System Overview**](./docs/01_SYSTEM_OVERVIEW.md) | Business model, COSS architecture, high-level subsystem breakdown. |
+| [**02. Architecture Deep Dive**](./docs/02_ARCHITECTURE_DEEP_DIVE.md) | Concurrency mechanics, Lua scripts, transactional outbox, and CDC projections. |
+| [**03. Complete API Reference**](./docs/03_API_REFERENCE.md) | Full route catalog, SCIM v2 specifications, Stripe webhooks, and SSE feeds. |
+| [**04. ResMesh Compute Mesh**](./docs/04_RESMESH_COMPUTE_MESH.md) | Infrastructure abstraction, bearer tokens, lease lifecycles, and burn tracking. |
+| [**05. Production Deployment**](./docs/05_PRODUCTION_DEPLOYMENT.md) | Kubernetes, multi-target Dockerfile, MongoDB Atlas replica set requirements. |
+| [**06. Environment & Security Matrix**](./docs/06_ENV_VARS_AND_SECURITY.md) | Master reference for all 42 configuration options and multi-role RBAC matrices. |
+| [**07. SRE Operations & Runbooks**](./docs/07_OPERATIONS_AND_RUNBOOKS.md) | Real-world incident playbooks: Redis restarts, outbox replays, and oplog rollovers. |
 
-## Tech Stack
+---
 
-| Category | Technology |
-| :--- | :--- |
-| Framework | Next.js 15 (App Router) |
-| Language | TypeScript |
-| Database | MongoDB via Mongoose |
-| Authentication | NextAuth.js (Auth.js v5) |
-| Styling | Tailwind CSS 4.0 |
-| UI Libraries | Radix UI, Lucide React, Framer Motion |
-| Validation | Zod |
-| Utilities | bcryptjs (Hashing), clsx, tailwind-merge |
-| Deployment | Optimized for Vercel & MongoDB Atlas |
+## ⚡ 60-Second Quickstart
 
-## Architecture Overview
+### 1. Start Local Infrastructure
+The system requires a MongoDB replica set (`rs0`) and Redis. These are configured out-of-the-box in Docker Compose:
+```bash
+docker compose up -d rs0 redis
+```
 
-*   **Application Structure**: Follows Next.js App Router patterns with grouped routes for `(host)` and `(public)` contexts.
-*   **Authentication Flow**: Handled by NextAuth.js using a Credentials provider. Users are assigned roles (`HOST` or `ATTENDEE`) upon creation.
-*   **Registration Flow**: Uses MongoDB sessions and transactions in `registerAttendeeForEvent` to ensure that seat increments and registration records are atomic, preventing "oversold" events during high concurrency.
-*   **Event Management**: Implemented via Server Actions for high performance and reduced client-side shipping.
-*   **Authorization Flow**: 
-    1. Middleware/Auth check for session existence.
-    2. Role check via `canAccessHostRoute`.
-    3. Resource ownership check via `assertEventOwnership(eventId, hostId)`.
+### 2. Install & Configure
+```bash
+pnpm install
+cp .env.example .env.local
+```
 
-## Folder Structure
+### 3. Launch Development Server
+```bash
+pnpm dev
+```
+Visit `http://localhost:3000` for the ticketing portal, or `http://localhost:3000/mesh` for the ResMesh Control Plane.
 
+### 4. Launch Background Daemons
+In a dedicated terminal, run the outbox relay, lease reaper, export worker, and CDC pipeline runner:
+```bash
+pnpm worker
+```
+
+---
+
+## 🧪 Concurrency & Load Testing
+
+The repository includes a dedicated standalone high-concurrency load testing harness that simulates hundreds of concurrent reservations hitting the final seats simultaneously:
+
+```bash
+pnpm run test:concurrency
+```
+
+### Sample Output:
 ```text
-evenregman/
-├── src/
-│   ├── app/                    
-│   │   ├── (host)/             # Layouts and pages restricted to Host role
-│   │   ├── (public)/           # Publicly accessible routes (Landing, Detail)
-│   │   └── api/auth/           # Auth.js configuration and callback handlers
-│   ├── components/             
-│   │   ├── dashboard/          # Specialized host-view components (EventTable, stats)
-│   │   └── ui/                 # Atomic shadcn-like UI components
-│   ├── lib/                    
-│   │   ├── db.ts               # MongoDB connection pooling logic
-│   │   ├── ownership.ts        # Server-side resource authorization utilities
-│   │   └── registrations.ts    # Transactional registration business service
-│   ├── models/                 # Mongoose schema definitions
-│   └── schemas/                # Zod definitions shared between client and server
-├── public/                     # Static assets
-└── package.json                # Project configuration and dependencies
+=== STARTING CONCURRENCY STRESS TEST ===
+[Event Created] Capacity: 5 seats
+[Simulating 50 Concurrent Registrations...]
+>> Thread 01: Reserved (4 remaining)
+>> Thread 02: Reserved (3 remaining)
+>> Thread 03: Reserved (2 remaining)
+>> Thread 04: Reserved (1 remaining)
+>> Thread 05: Reserved (0 remaining)
+>> Thread 06..50: 409 Conflict (Sold Out)
+[Assertion Passed] Total Successful Bookings: 5 / 5
+[Assertion Passed] Zero Overselling Detected
+[Assertion Passed] MongoDB & Redis Counters in 100% Lockstep Synchronization
 ```
 
-## Database Design
+---
 
-### Models
-1.  **User**
-    *   Fields: `name`, `email` (unique), `passwordHash`, `role` (HOST/ATTENDEE).
-    *   Constraints: Strict email regex validation and bcrypt hash length requirements.
-2.  **Event**
-    *   Fields: `hostId` (Ref), `title`, `slug` (unique), `capacity`, `attendeeCount`, `registrationCutoff`, `status`.
-    *   Indexes: Unique index on `slug`.
-3.  **Registration**
-    *   Fields: `attendeeId` (Ref), `eventId` (Ref), `status` (ACTIVE/CANCELLED).
-    *   Relationships: Links Users (Attendees) to Events.
+## 🛡️ License
 
-## Authentication & Authorization
-
-*   **Login Flow**: Handled via `next-auth`. Session stores the user `id` and `role`.
-*   **Role Protection**: Routes under `(host)` are guarded by role checks (e.g., `canAccessHostRoute`).
-*   **Ownership Validation**: The `assertEventOwnership` utility verifies that the `hostId` of an event matches the authenticated session user before allowing updates.
-
-## Environment Variables
-
-Create a `.env.local` file in the root directory.
-
-### .env.local Example
-```env
-MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/evenregman
-AUTH_SECRET=your_next_auth_secret_here
-AUTH_URL=http://localhost:3000
-```
-
-*   **MONGODB_URI**: Required. Connection string for your MongoDB instance.
-*   **AUTH_SECRET**: Required. A random string used to hash tokens.
-*   **AUTH_URL**: Required for local development (NextAuth).
-
-## Installation
-
-1.  **Clone the repository**:
-    ```bash
-    git clone <repository-url>
-    cd evenregman
-    ```
-2.  **Install dependencies**:
-    ```bash
-    npm install
-    ```
-3.  **Configure environment variables**:
-    Create `.env.local` as described in the section above.
-
-## Running Locally
-
-*   **Development Server**:
-    ```bash
-    npm run dev
-    ```
-*   **Production Build**:
-    ```bash
-    npm run build
-    npm run start
-    ```
-*   **Type Checking**:
-    ```bash
-    npm run typecheck
-    ```
-
-## Available Routes
-
-| Route | Access Level | Description |
-| :--- | :--- | :--- |
-| `/` | Public | Homepage / Landing (assumed). |
-| `/events` | Public | Public events listing page for attendees. |
-| `/events/[slug]` | Public | Public event details and registration form. |
-| `/host/dashboard` | Host | Overview of events and registration stats. |
-| `/host/events/new` | Host | Form to create a new event. |
-| `/host/events/[id]/edit` | Host | Manage specific event details and status. |
-
-## API Documentation
-
-The project primarily uses **Next.js Server Actions** for data mutations:
-*   `createEventAction`: Validates and saves new events.
-*   `updateEventAction`: Updates existing event data with ownership checks.
-*   `registerAttendeeForEvent`: Atomic registration logic including account handling.
-*   `updateEventStatus`: Handles status transitions (Open, Close, Delete).
-
-## Security Considerations
-
-*   **Password Hashing**: Uses `bcryptjs` with a salt cost of 12.
-*   **Slug Collisions**: `generateUniqueEventSlug` implements an iterative check (up to 25 attempts) to prevent duplicate URL paths.
-*   **Transaction Integrity**: Registrations use `session.withTransaction()` to ensure `attendeeCount` in the `Event` model stays in sync with `Registration` records.
-*   **Server-Only Logic**: Sensitive business logic and DB calls are marked with `"server-only"` to prevent client-side leakage.
-
-## Deployment Guide
-
-### Vercel
-1.  Connect your GitHub repository to Vercel.
-2.  Add the environment variables (`MONGODB_URI`, `AUTH_SECRET`) in the Vercel Project Settings.
-3.  Vercel will automatically detect Next.js and deploy.
-
-### MongoDB Atlas
-1.  Create a new Cluster.
-2.  Whitelist the deployment IP (or 0.0.0.0/0 for Vercel).
-3.  Copy the connection string into `MONGODB_URI`.
-
-## Troubleshooting
-
-*   **Database Connection**: Ensure your IP is whitelisted in MongoDB Atlas if you encounter connection timeouts.
-*   **Auth Session**: If login fails, verify `AUTH_SECRET` is consistent across your environment.
-*   **Slug Generation**: If you receive a "Could not generate unique slug" error, try using more specific keywords in the event title.
-*   **High-Concurrency Events**: If you experience overselling during flash sales or popular events, enable the Atomic Reservation System (see [Atomic Reservations](./docs/ATOMIC_RESERVATIONS.md)).
-
-## Future Improvements
-
-*   **Email Notifications**: Send confirmation emails upon successful registration.
-*   **Export Data**: Add CSV/Excel export for registration lists.
-*   **Waitlist**: Implement a waitlist feature for events that are "FULL".
+This project is licensed under the Apache 2.0 / MIT Dual License - see the [LICENSE](LICENSE) file for details.
