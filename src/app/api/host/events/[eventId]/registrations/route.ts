@@ -41,3 +41,29 @@ export async function GET(req: Request, { params }: RouteContext) {
     return NextResponse.json({ error: message }, { status: statusCode });
   }
 }
+
+export async function DELETE(req: Request, { params }: RouteContext) {
+  const session = await auth();
+
+  if (!session?.user || session.user.role !== "HOST") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { eventId } = await params;
+  const url = new URL(req.url);
+  const registrationId = url.searchParams.get("registrationId");
+
+  if (!registrationId) {
+    return NextResponse.json({ error: "registrationId query parameter is required" }, { status: 400 });
+  }
+
+  try {
+    const { cancelRegistrationForHost } = await import("@/lib/registrations-admin");
+    const result = await cancelRegistrationForHost(eventId, registrationId, session.user.id);
+    return NextResponse.json(result);
+  } catch (error: any) {
+    const statusCode = error?.statusCode || 500;
+    const message = error?.message || "Unable to cancel registration.";
+    return NextResponse.json({ error: message }, { status: statusCode });
+  }
+}

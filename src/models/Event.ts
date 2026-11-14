@@ -5,6 +5,9 @@ import { model, models, Schema, type Model, type Types } from "mongoose";
 export const EVENT_STATUSES = ["OPEN", "FULL", "CLOSED", "DELETED"] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
+export const RESOURCE_TYPES = ["GPU_CLUSTER", "PREVIEW_ENV", "SANDBOX", "INFERENCE_ENDPOINT"] as const;
+export type ResourceType = (typeof RESOURCE_TYPES)[number];
+
 export interface Event {
   _id: Types.ObjectId;
   hostId: Types.ObjectId;
@@ -22,6 +25,14 @@ export interface Event {
   deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+
+  // Additive fields for Enterprise Resource & Environment Mesh (ResMesh)
+  kind?: "EVENT" | "RESOURCE";
+  resourceType?: ResourceType;
+  hourlyCostRate?: number;
+  defaultLeaseMinutes?: number;
+  maxLeaseMinutes?: number;
+  webhookUrl?: string;
 }
 
 export type AtomicIncrementResult =
@@ -137,6 +148,32 @@ const eventSchema = new Schema<Event, EventModel>(
     deletedAt: {
       type: Date,
       default: null
+    },
+    kind: {
+      type: String,
+      enum: ["EVENT", "RESOURCE"],
+      default: "EVENT"
+    },
+    resourceType: {
+      type: String,
+      enum: RESOURCE_TYPES,
+      default: undefined
+    },
+    hourlyCostRate: {
+      type: Number,
+      default: undefined
+    },
+    defaultLeaseMinutes: {
+      type: Number,
+      default: 120
+    },
+    maxLeaseMinutes: {
+      type: Number,
+      default: 480
+    },
+    webhookUrl: {
+      type: String,
+      default: undefined
     }
   },
   {

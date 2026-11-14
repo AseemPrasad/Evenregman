@@ -11,7 +11,7 @@
 export async function register() {
   const { env } = await import('./lib/env');
 
-  if (env.ENABLE_OTEL_TRACING !== true) {
+  if (env.ENABLE_OTEL_TRACING !== "true" && (env as any).ENABLE_OTEL_TRACING !== true) {
     return;
   }
 

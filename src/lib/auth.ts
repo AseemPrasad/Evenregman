@@ -5,6 +5,8 @@ import type { Types } from "mongoose";
 import { env } from "@/lib/env";
 import type { User } from "@/models/User";
 
+export { auth } from "@/lib/session";
+
 export const authConfig = {
   secret: env.AUTH_SECRET,
   pages: {

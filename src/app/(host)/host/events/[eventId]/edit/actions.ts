@@ -11,6 +11,7 @@ import { assertEventOwnership, AuthorizationError } from "@/lib/ownership";
 import { eventUpdateFormSchema, eventUpdateSchema } from "@/schemas/event";
 import { generateUniqueEventSlug } from "@/lib/slug";
 import { revalidateEventCache, revalidateEventsList } from "@/lib/cache-revalidation";
+import { redisSyncEventCapacity } from "@/lib/redis-operations";
 
 export type UpdateEventFormValues = {
   title: string;
@@ -73,8 +74,8 @@ async function updateEventStatus(eventId: string, nextStatus: EventStatus): Prom
     await connectToDatabase();
 
     const existingEvent = (await EventModel.findOne({ _id: eventId, hostId: session.user.id })
-      .select({ _id: 1, slug: 1 })
-      .lean()) as { _id: string; slug: string } | null;
+      .select({ _id: 1, slug: 1, capacity: 1, attendeeCount: 1 })
+      .lean()) as { _id: string; slug: string; capacity: number; attendeeCount: number } | null;
 
     if (!existingEvent) {
       return { success: false, message: "Event not found." };
@@ -91,6 +92,12 @@ async function updateEventStatus(eventId: string, nextStatus: EventStatus): Prom
     }
 
     if (nextStatus === "OPEN") {
+      if (existingEvent.attendeeCount >= existingEvent.capacity) {
+        return {
+          success: false,
+          message: "Cannot re-open this event because it is currently at maximum capacity."
+        };
+      }
       update.closedAt = null;
       update.deletedAt = null;
     }
@@ -101,6 +108,12 @@ async function updateEventStatus(eventId: string, nextStatus: EventStatus): Prom
     }
 
     await EventModel.updateOne({ _id: eventId }, { $set: update });
+
+    // Sync Redis capacity counter if re-opened
+    if (nextStatus === "OPEN") {
+      const remainingSeats = Math.max(0, existingEvent.capacity - existingEvent.attendeeCount);
+      await redisSyncEventCapacity(eventId, remainingSeats);
+    }
 
     await revalidateEventCache(existingEvent.slug);
     await revalidateEventsList();
@@ -209,10 +222,8 @@ export async function updateEventAction(
     };
   }
 
-  const nextSlug =
-    normalizedEvent.title && normalizedEvent.title.trim() !== existingEvent.title
-      ? await generateUniqueEventSlug(normalizedEvent.title)
-      : existingEvent.slug;
+  // Keep existing slug immutable to prevent breaking existing attendee bookmarks and ticket URLs
+  const nextSlug = existingEvent.slug;
 
   try {
     const updatedEvent = (await EventModel.findOneAndUpdate(
@@ -245,6 +256,10 @@ export async function updateEventAction(
         message: "Unable to update this event right now."
       };
     }
+
+    // Synchronize Redis capacity counter with new capacity
+    const remainingSeats = Math.max(0, nextCapacity - existingEvent.attendeeCount);
+    await redisSyncEventCapacity(eventId, remainingSeats);
 
     await revalidateEventCache(existingEvent.slug);
     if (existingEvent.slug !== updatedEvent.slug) {

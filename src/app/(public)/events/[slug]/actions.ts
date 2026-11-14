@@ -51,7 +51,15 @@ export async function registerForEventAction(
   const result = await registrationFn(eventSlug, parsed.data);
 
   if (result.success) {
+    try {
+      const { invalidateEventCache } = await import("@/lib/cache-service");
+      await invalidateEventCache(eventSlug);
+    } catch {
+      // Non-blocking fail-safe
+    }
+
     revalidatePath(`/events/${eventSlug}`);
+    revalidatePath("/events");
   }
 
   return result;

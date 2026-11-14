@@ -9,6 +9,9 @@ import { AuthorizationError, assertRegistrationOwnership, toObjectId } from "@/l
 import { EventModel, type Event } from "@/models/Event";
 import { RegistrationModel } from "@/models/Registration";
 import { attendeeCancellationSchema } from "@/schemas/registration";
+import { redisSyncEventCapacity } from "@/lib/redis-operations";
+import { invalidateEventCache } from "@/lib/cache-service";
+import { outboxPublisher } from "@/lib/outbox";
 
 export type CancelRegistrationState = {
   success: boolean;
@@ -98,12 +101,40 @@ export async function cancelRegistrationAction(registrationId: string): Promise<
         { session: mongoSession }
       );
 
+      // Publish Transactional Outbox Event for cancellation
+      await outboxPublisher.publishEvent(
+        mongoSession,
+        "REGISTRATION",
+        updatedRegistration._id.toString(),
+        "REGISTRATION_CANCELLED",
+        {
+          registrationId: updatedRegistration._id.toString(),
+          attendeeId: session.user.id,
+          eventId: event._id.toString(),
+          eventSlug: event.slug,
+          cancelledAt: new Date().toISOString()
+        }
+      );
+
       cancelledEventSlug = event.slug;
       cancelledEventId = event._id.toString();
+      const remainingSeats = Math.max(0, event.capacity - nextAttendeeCount);
+      (mongoSession as any).__remainingSeats = remainingSeats;
     });
 
     if (!cancelledEventSlug || !cancelledEventId) {
       return { success: false, message: "Unable to cancel this registration." };
+    }
+
+    // Sync Redis capacity counter with vacated seat
+    const remainingSeats = (mongoSession as any).__remainingSeats ?? 0;
+    await redisSyncEventCapacity(cancelledEventId, remainingSeats);
+
+    // Invalidate L2 Redis cache
+    try {
+      await invalidateEventCache(cancelledEventSlug);
+    } catch {
+      // Non-blocking fail-safe
     }
 
     revalidatePath("/attendee/dashboard");

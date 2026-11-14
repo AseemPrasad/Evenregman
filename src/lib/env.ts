@@ -2,8 +2,8 @@ import { z } from "zod";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  NEXT_PUBLIC_APP_URL: z.string().url(),
-  AUTH_URL: z.string().url(),
+  NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
+  AUTH_URL: z.string().default("http://localhost:3000"),
   AUTH_SECRET: z.string().min(1),
   MONGODB_URI: z.string().min(1),
   MONGODB_DB: z.string().min(1),
@@ -36,7 +36,36 @@ const envSchema = z.object({
   OIDC_TIMEOUT_SECONDS: z.string().default("30"),
   SCIM_RATE_LIMIT: z.string().default("100"),
   SESSION_REVOCATION_ENABLED: z.enum(["true", "false"]).default("true"),
-  SESSION_REVOCATION_TTL_HOURS: z.string().default("168")
+  SESSION_REVOCATION_TTL_HOURS: z.string().default("168"),
+
+  // CDC Change Stream pipeline configuration
+  ENABLE_CDC_PIPELINE: z.enum(["true", "false"]).default("false"),
+  CDC_PIPELINE_WORKER_ENABLED: z.enum(["true", "false"]).default("false"),
+  CDC_BATCH_SIZE: z.string().default("100"),
+  CDC_BATCH_INTERVAL_MS: z.string().default("5000"),
+  CDC_RESUME_TOKEN_STORAGE: z.enum(["redis", "mongodb"]).default("redis"),
+  CDC_MAX_RESUME_TOKEN_AGE_SECONDS: z.string().default("604800"),
+  CDC_ERROR_RETRY_DELAY_MS: z.string().default("5000"),
+
+  // OpenTelemetry Distributed Tracing configuration
+  ENABLE_OTEL_TRACING: z.enum(["true", "false"]).default("false"),
+  OTEL_SERVICE_NAME: z.string().default("evenregman"),
+  OTEL_SERVICE_VERSION: z.string().default("1.0.0"),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default("http://localhost:4318/v1/traces"),
+  OTEL_SAMPLE_RATE: z.string().default("1.0"),
+
+  // Transactional Email Configuration
+  ENABLE_EMAIL_DISPATCH: z.enum(["true", "false"]).default("false"),
+  EMAIL_FROM: z.string().default("noreply@resmesh.io"),
+  EMAIL_SERVER_HOST: z.string().optional().default(""),
+  EMAIL_SERVER_PORT: z.string().default("587"),
+  EMAIL_SERVER_USER: z.string().optional().default(""),
+  EMAIL_SERVER_PASSWORD: z.string().optional().default(""),
+
+  // Stripe Billing & Monetization Configuration
+  ENABLE_STRIPE_BILLING: z.enum(["true", "false"]).default("false"),
+  STRIPE_SECRET_KEY: z.string().optional().default(""),
+  STRIPE_WEBHOOK_SECRET: z.string().optional().default("")
 });
 
 const parsedEnv = envSchema.safeParse({
@@ -75,7 +104,32 @@ const parsedEnv = envSchema.safeParse({
   OIDC_TIMEOUT_SECONDS: process.env.OIDC_TIMEOUT_SECONDS,
   SCIM_RATE_LIMIT: process.env.SCIM_RATE_LIMIT,
   SESSION_REVOCATION_ENABLED: process.env.SESSION_REVOCATION_ENABLED,
-  SESSION_REVOCATION_TTL_HOURS: process.env.SESSION_REVOCATION_TTL_HOURS
+  SESSION_REVOCATION_TTL_HOURS: process.env.SESSION_REVOCATION_TTL_HOURS,
+
+  ENABLE_CDC_PIPELINE: process.env.ENABLE_CDC_PIPELINE,
+  CDC_PIPELINE_WORKER_ENABLED: process.env.CDC_PIPELINE_WORKER_ENABLED,
+  CDC_BATCH_SIZE: process.env.CDC_BATCH_SIZE,
+  CDC_BATCH_INTERVAL_MS: process.env.CDC_BATCH_INTERVAL_MS,
+  CDC_RESUME_TOKEN_STORAGE: process.env.CDC_RESUME_TOKEN_STORAGE,
+  CDC_MAX_RESUME_TOKEN_AGE_SECONDS: process.env.CDC_MAX_RESUME_TOKEN_AGE_SECONDS,
+  CDC_ERROR_RETRY_DELAY_MS: process.env.CDC_ERROR_RETRY_DELAY_MS,
+
+  ENABLE_OTEL_TRACING: process.env.ENABLE_OTEL_TRACING,
+  OTEL_SERVICE_NAME: process.env.OTEL_SERVICE_NAME,
+  OTEL_SERVICE_VERSION: process.env.OTEL_SERVICE_VERSION,
+  OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  OTEL_SAMPLE_RATE: process.env.OTEL_SAMPLE_RATE,
+
+  ENABLE_EMAIL_DISPATCH: process.env.ENABLE_EMAIL_DISPATCH,
+  EMAIL_FROM: process.env.EMAIL_FROM,
+  EMAIL_SERVER_HOST: process.env.EMAIL_SERVER_HOST,
+  EMAIL_SERVER_PORT: process.env.EMAIL_SERVER_PORT,
+  EMAIL_SERVER_USER: process.env.EMAIL_SERVER_USER,
+  EMAIL_SERVER_PASSWORD: process.env.EMAIL_SERVER_PASSWORD,
+
+  ENABLE_STRIPE_BILLING: process.env.ENABLE_STRIPE_BILLING,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET
 });
 
 if (!parsedEnv.success) {

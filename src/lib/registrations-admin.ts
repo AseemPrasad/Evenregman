@@ -1,10 +1,15 @@
 import "server-only";
 
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 
 import { connectToDatabase } from "@/lib/db";
 import { RegistrationModel } from "@/models/Registration";
+import { EventModel } from "@/models/Event";
 import { toObjectId, assertEventOwnership, AuthorizationError } from "@/lib/ownership";
+import { redisSyncEventCapacity } from "@/lib/redis-operations";
+import { revalidateEventCache } from "@/lib/cache-revalidation";
+import { outboxPublisher } from "@/lib/outbox";
+import { revalidatePath } from "next/cache";
 
 export type RegistrationListItem = {
   id: string;
@@ -79,7 +84,7 @@ export async function getEventRegistrationsForHost(
   ];
 
   if (search) {
-    const regex = new RegExp(search.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&"), "i");
+    const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     pipeline.push({
       $match: {
         $or: [{ "attendee.name": { $regex: regex } }, { "attendee.email": { $regex: regex } }]
@@ -138,4 +143,100 @@ export async function getEventRegistrationsForHost(
     limit,
     data
   };
+}
+
+export async function cancelRegistrationForHost(
+  eventId: string,
+  registrationId: string,
+  hostId: string
+): Promise<{ success: boolean; message: string }> {
+  await connectToDatabase();
+
+  await assertEventOwnership(eventId, hostId);
+
+  const session = await mongoose.startSession();
+  let eventSlug = "";
+  let remainingSeats = 0;
+
+  try {
+    await session.withTransaction(async () => {
+      const regObjectId = toObjectId(registrationId);
+      const evObjectId = toObjectId(eventId);
+
+      const registration = await RegistrationModel.findOne({
+        _id: regObjectId,
+        eventId: evObjectId,
+        status: "ACTIVE"
+      }).session(session);
+
+      if (!registration) {
+        throw new Error("Registration not found or already cancelled.");
+      }
+
+      const event = await EventModel.findById(evObjectId).session(session);
+      if (!event) {
+        throw new Error("Event not found.");
+      }
+
+      registration.status = "CANCELLED";
+      registration.cancelledAt = new Date();
+      await registration.save({ session });
+
+      const nextAttendeeCount = Math.max(0, event.attendeeCount - 1);
+      const nextStatus = nextAttendeeCount < event.capacity && event.status === "FULL" ? "OPEN" : event.status;
+
+      await EventModel.updateOne(
+        { _id: evObjectId },
+        {
+          $set: {
+            attendeeCount: nextAttendeeCount,
+            status: nextStatus,
+            updatedAt: new Date()
+          }
+        },
+        { session }
+      );
+
+      await outboxPublisher.publishEvent(
+        session,
+        "REGISTRATION",
+        registration._id.toString(),
+        "REGISTRATION_CANCELLED",
+        {
+          registrationId: registration._id.toString(),
+          attendeeId: registration.attendeeId.toString(),
+          eventId: event._id.toString(),
+          eventSlug: event.slug,
+          cancelledByHost: true,
+          cancelledAt: new Date().toISOString()
+        }
+      );
+
+      eventSlug = event.slug;
+      remainingSeats = Math.max(0, event.capacity - nextAttendeeCount);
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  // Sync Redis atomic capacity counter
+  await redisSyncEventCapacity(eventId, remainingSeats);
+
+  // Invalidate cache and paths
+  try {
+    if (eventSlug) {
+      await revalidateEventCache(eventSlug);
+    }
+  } catch (err) {
+    console.warn("[cancelRegistrationForHost] Cache revalidation error:", err);
+  }
+
+  revalidatePath("/host/dashboard");
+  revalidatePath(`/host/events/${eventId}/registrations`);
+  revalidatePath("/attendee/dashboard");
+  if (eventSlug) {
+    revalidatePath(`/events/${eventSlug}`);
+  }
+
+  return { success: true, message: "Registration cancelled successfully." };
 }

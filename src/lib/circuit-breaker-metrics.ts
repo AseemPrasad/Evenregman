@@ -1,7 +1,6 @@
-import { getAllCircuitBreakers, CircuitBreakerState } from './circuit-breaker';
+import { getAllCircuitBreakers, getCircuitBreaker, resetCircuitBreaker, CircuitBreakerState, isCircuitBreakerEnabled } from './circuit-breaker';
 import { fallbackQueueService } from './fallback-queue';
 import { env } from './env';
-import { isCircuitBreakerEnabled } from './circuit-breaker';
 
 export interface CircuitBreakerMetric {
   name: string;
@@ -102,7 +101,6 @@ export function isCircuitBreakerTripped(name: string): boolean {
     return false;
   }
 
-  const { getCircuitBreaker } = require('./circuit-breaker');
   const breaker = getCircuitBreaker(name);
 
   if (!breaker) {
@@ -116,8 +114,6 @@ export async function resetCircuitBreakerMetrics(name?: string): Promise<void> {
   if (!isCircuitBreakerEnabled()) {
     return;
   }
-
-  const { resetCircuitBreaker, getAllCircuitBreakers } = require('./circuit-breaker');
 
   if (name) {
     resetCircuitBreaker(name);

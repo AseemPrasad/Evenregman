@@ -2,6 +2,7 @@ import "server-only";
 
 import { connectToDatabase } from "@/lib/db";
 import { env } from "@/lib/env";
+import { cdcResumeTokenService } from "@/lib/cdc-resume-token";
 import { DocumentChangeEvent } from "mongodb";
 
 export interface CDCEventPayload {
@@ -79,6 +80,7 @@ class CDCWorker {
       this.changeStream = collection.watch([], {
         fullDocument: "updateLookup",
         resumeAfter: undefined,
+        readPreference: "secondaryPreferred"
       });
 
       console.log(`[CDCWorker] Change stream opened for ${collectionName}`);
@@ -93,8 +95,20 @@ class CDCWorker {
         }
       });
 
-      this.changeStream.on("error", async (err: Error) => {
+      this.changeStream.on("error", async (err: any) => {
         console.error(`[CDCWorker] Change stream error:`, err);
+
+        // Self-healing: Detect ChangeStreamHistoryLost (Code 286 / 280) when oplog rolls over
+        const isHistoryLost = err?.code === 286 || err?.code === 280 || (err?.message && err.message.includes("ChangeStreamHistoryLost"));
+        if (isHistoryLost) {
+          console.warn(`[CDCWorker] ⚠️ Oplog history rollover detected for ${collectionName}. Purging stale resume token.`);
+          try {
+            await cdcResumeTokenService.clearResumeToken(collectionName);
+          } catch (tokenErr) {
+            console.error(`[CDCWorker] Failed to clear resume token for ${collectionName}:`, tokenErr);
+          }
+        }
+
         if (this.isRunning) {
           await this.reconnectWithBackoff(collectionName);
         }
@@ -125,13 +139,16 @@ class CDCWorker {
 
     const startTime = Date.now();
 
-    for (const handler of handlers) {
-      try {
-        await handler(change);
-      } catch (err) {
-        console.error(`[CDCWorker] Handler error for ${collectionName}:`, err);
-      }
-    }
+    // High-Scale Optimization: Execute handlers concurrently to prevent slow webhooks/projections from lagging the oplog cursor
+    const results = await Promise.allSettled(
+      handlers.map(async (handler) => {
+        try {
+          await handler(change);
+        } catch (err) {
+          console.error(`[CDCWorker] Handler error for ${collectionName}:`, err);
+        }
+      })
+    );
 
     const latency = Date.now() - startTime;
     if (latency > 100) {

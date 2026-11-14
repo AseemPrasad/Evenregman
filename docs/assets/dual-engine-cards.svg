@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="blueBorder" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="purpleBorder" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Left Card: evenregman -->
+  <g transform="translate(10, 10)">
+    <rect x="0" y="0" width="530" height="220" rx="12" fill="url(#cardBg)" stroke="url(#blueBorder)" stroke-width="1.5"/>
+    
+    <!-- Header Badge -->
+    <rect x="24" y="24" width="36" height="36" rx="8" fill="#0284c7" fill-opacity="0.2"/>
+    <circle cx="42" cy="42" r="6" fill="#38bdf8"/>
+    <text x="72" y="44" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#ffffff">evenregman Core Ticketing</text>
+    <text x="72" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="500" fill="#38bdf8">HIGH-CONCURRENCY RESERVATION ENGINE</text>
+
+    <!-- Description -->
+    <text x="24" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94a3b8">
+      Engineered for viral ticketing events where thousands compete for
+    </text>
+    <text x="24" y="112" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94a3b8">
+      scarce seats. Eliminates overselling via sub-ms Redis Lua locks.
+    </text>
+
+    <!-- Bullets -->
+    <g transform="translate(24, 136)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" fill="#e2e8f0">
+      <circle cx="4" cy="4" r="3" fill="#38bdf8"/>
+      <text x="16" y="8">L1 Redis Atomic Fast-Path (Zero Overselling Guarantee)</text>
+
+      <circle cx="4" cy="28" r="3" fill="#38bdf8"/>
+      <text x="16" y="32">L2 MongoDB Replica Set Multi-Document ACID Commits</text>
+
+      <circle cx="4" cy="52" r="3" fill="#38bdf8"/>
+      <text x="16" y="56">Transactional Outbox with Guaranteed External Delivery</text>
+    </g>
+  </g>
+
+  <!-- Right Card: ResMesh -->
+  <g transform="translate(560, 10)">
+    <rect x="0" y="0" width="530" height="220" rx="12" fill="url(#cardBg)" stroke="url(#purpleBorder)" stroke-width="1.5"/>
+
+    <!-- Header Badge -->
+    <rect x="24" y="24" width="36" height="36" rx="8" fill="#7c3aed" fill-opacity="0.2"/>
+    <polygon points="42,34 50,42 42,50 34,42" fill="#c084fc"/>
+    <text x="72" y="44" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#ffffff">ResMesh Control Plane</text>
+    <text x="72" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="500" fill="#c084fc">SCARCE AI COMPUTE &amp; ENVIRONMENT MESH</text>
+
+    <!-- Description -->
+    <text x="24" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94a3b8">
+      Commercial Open-Source control plane for scarce NVIDIA GPUs,
+    </text>
+    <text x="24" y="112" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94a3b8">
+      ephemeral preview environments, and dedicated CI test clusters.
+    </text>
+
+    <!-- Bullets -->
+    <g transform="translate(24, 136)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" fill="#e2e8f0">
+      <circle cx="4" cy="4" r="3" fill="#c084fc"/>
+      <text x="16" y="8">Self-Healing TTL Leases with Cryptographic Bearer Tokens</text>
+
+      <circle cx="4" cy="28" r="3" fill="#c084fc"/>
+      <text x="16" y="32">60s Automated Sweeper Daemon Reclaims Zombie Compute</text>
+
+      <circle cx="4" cy="52" r="3" fill="#c084fc"/>
+      <text x="16" y="56">Hourly Dollar Burn Tracking &amp; Stripe Metered Billing Sync</text>
+    </g>
+  </g>
+</svg>
+

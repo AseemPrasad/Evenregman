@@ -3,6 +3,7 @@ import "server-only";
 import { auth } from "@/lib/session";
 import { connectToDatabase } from "@/lib/db";
 import { ExportJobModel } from "@/models/ExportJob";
+import { generatePresignedUrl } from "@/lib/s3";
 
 type RouteContext = {
   params: Promise<{
@@ -55,7 +56,16 @@ export async function GET(req: Request, { params }: RouteContext) {
     }
 
     if (job.status === "completed") {
-      response.downloadUrl = job.downloadUrl;
+      let downloadUrl = job.downloadUrl;
+      if (job.s3Key) {
+        try {
+          const presigned = await generatePresignedUrl(job.s3Key, 900);
+          downloadUrl = presigned.url;
+        } catch (s3Err) {
+          console.warn("[JOB_API] Failed to refresh pre-signed download URL, falling back to static URL:", s3Err);
+        }
+      }
+      response.downloadUrl = downloadUrl;
       response.completedAt = job.completedAt;
       if (job.expiresAt) {
         response.expiresAt = job.expiresAt;
