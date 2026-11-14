@@ -73,31 +73,46 @@ async function processExportJob(context: JobContext): Promise<void> {
   const mode = context.mode || "name_email";
   const search = context.search;
 
-  console.log(`[Worker] Processing export job ${jobId} for event ${eventId}`);
-
   try {
+    console.log(`[Worker] ${jobId}: starting export for event ${eventId}`);
+
     await connectToDatabase();
 
-    const job = await ExportJobModel.findOne({ jobId });
-    if (!job) {
-      throw new Error("Job record not found in database");
-    }
+    await updateJobStatus(jobId, "processing", {
+      startedAt: Date.now()
+    });
 
-    await updateJobStatus(jobId, "processing", { startedAt: Date.now() });
     await ExportJobModel.updateOne(
       { jobId },
-      { status: "processing", startedAt: new Date() }
+      {
+        status: "processing",
+        startedAt: new Date()
+      }
     );
 
-    let totalRows = 0;
+    const matchStage: any = {
+      eventId: toObjectId(eventId),
+      status: "ACTIVE"
+    };
+
     const pipeline: any[] = [
-      { $match: { eventId: toObjectId(eventId), status: { $in: ["ACTIVE"] } } },
-      { $lookup: { from: "users", localField: "attendeeId", foreignField: "_id", as: "attendee" } },
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "users",
+          localField: "attendeeId",
+          foreignField: "_id",
+          as: "attendee"
+        }
+      },
       { $unwind: "$attendee" }
     ];
 
-    if (search) {
-      const regex = new RegExp(search.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&"), "i");
+    if (search && search.trim()) {
+      const regex = new RegExp(
+        search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i"
+      );
       pipeline.push({
         $match: {
           $or: [
@@ -108,48 +123,64 @@ async function processExportJob(context: JobContext): Promise<void> {
       });
     }
 
-    pipeline.push({ $project: { "attendee.name": 1, "attendee.email": 1 } });
+    pipeline.push({
+      $project: {
+        _id: 1,
+        registeredAt: 1,
+        "attendee.name": 1,
+        "attendee.email": 1
+      }
+    });
+
+    let rowCount = 0;
+    const rows: string[] = [];
+
+    const headers =
+      mode === "detailed"
+        ? ["Registration ID", "Name", "Email", "Registered At"]
+        : ["Name", "Email"];
+
+    rows.push(headers.map((h) => `"${h}"`).join(","));
 
     const cursor = RegistrationModel.aggregate(pipeline).cursor({ batchSize: 500 });
 
-    const s3Key = `exports/${eventId}/${jobId}.csv`;
-    let csvContent = "";
-
-    if (mode === "email" || mode === "email_only") {
-      csvContent = "email\n";
-    } else {
-      csvContent = "name,email\n";
-    }
-
     for await (const doc of cursor) {
-      const attendee = doc.attendee || {};
-      const name = (attendee.name || "").replace(/\"/g, '""');
-      const email = (attendee.email || "").replace(/\"/g, '""');
+      rowCount++;
 
-      if (mode === "email" || mode === "email_only") {
-        csvContent += `${email}\n`;
-      } else {
-        csvContent += `"${name}","${email}"\n`;
-      }
+      const registeredAt = doc.registeredAt
+        ? new Date(doc.registeredAt).toISOString()
+        : "";
 
-      totalRows++;
+      const row =
+        mode === "detailed"
+          ? [
+              doc._id.toString(),
+              doc.attendee.name,
+              doc.attendee.email,
+              registeredAt
+            ]
+          : [doc.attendee.name, doc.attendee.email];
 
-      if (totalRows % 500 === 0) {
-        console.log(`[Worker] ${jobId}: processed ${totalRows} rows`);
-        await updateJobStatus(jobId, "processing", { rowCount: totalRows });
-      }
+      rows.push(
+        row
+          .map((val) => `"${String(val).replace(/"/g, '""')}"`)
+          .join(",")
+      );
     }
 
-    console.log(`[Worker] ${jobId}: finished processing ${totalRows} rows`);
+    const csvContent = rows.join("\n");
+    const s3Key = `exports/${eventId}/${jobId}.csv`;
+
+    console.log(`[Worker] ${jobId}: generated ${rowCount} rows, presigning URL`);
 
     const presignedUrlResult = await generatePresignedUrl(s3Key, 900);
-    const expiresAt = new Date(Date.now() + 900 * 1000);
 
     await updateJobStatus(jobId, "completed", {
       downloadUrl: presignedUrlResult.url,
-      rowCount: totalRows,
+      s3Key,
+      rowCount,
       completedAt: Date.now(),
-      expiresAt: expiresAt.getTime()
+      expiresAt: presignedUrlResult.expiresAt.getTime()
     });
 
     await ExportJobModel.updateOne(
@@ -158,9 +189,9 @@ async function processExportJob(context: JobContext): Promise<void> {
         status: "completed",
         downloadUrl: presignedUrlResult.url,
         s3Key,
-        rowCount: totalRows,
+        rowCount,
         completedAt: new Date(),
-        expiresAt
+        expiresAt: presignedUrlResult.expiresAt
       }
     );
 
@@ -215,7 +246,24 @@ export async function runExportWorker(): Promise<void> {
 
       const jobContext = await fetchJobData(jobId);
       if (!jobContext) {
-        console.warn(`[Worker] Could not fetch data for job ${jobId}`);
+        console.warn(`[Worker] Could not fetch data for job ${jobId}, marking as failed`);
+        await updateJobStatus(jobId, "failed", {
+          errorMessage: "Corrupted or expired export job data",
+          completedAt: Date.now()
+        });
+        try {
+          await connectToDatabase();
+          await ExportJobModel.updateOne(
+            { jobId },
+            {
+              status: "failed",
+              errorMessage: "Corrupted or expired export job data",
+              completedAt: new Date()
+            }
+          );
+        } catch (dbErr) {
+          console.error(`[Worker] Failed to update failed state in DB for ${jobId}:`, dbErr);
+        }
         isProcessing = false;
         return;
       }

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { OutboxEvent } from "@/models/OutboxEvent";
 import { HandlerError, type EventHandler } from "@/workers/event-handlers/base";
+import { leaseAllocatedHandler } from "@/workers/event-handlers/lease-allocated";
 
 type RegistrationCreatedPayload = {
   registrationId: string;
@@ -13,6 +14,7 @@ type RegistrationCreatedPayload = {
   eventSlug: string;
   eventDate: string;
   eventTime: string;
+  eventType?: string;
 };
 
 export class RegistrationCreatedHandler implements EventHandler {
@@ -21,6 +23,13 @@ export class RegistrationCreatedHandler implements EventHandler {
   async handle(event: OutboxEvent): Promise<void> {
     try {
       const payload = event.payload as RegistrationCreatedPayload;
+
+      // Defensive check: If payload represents a ResMesh lease allocation, delegate to leaseAllocatedHandler
+      if (payload?.eventType === "lease.allocated") {
+        console.log(`[Handler] Delegating lease allocation event ${event._id} to leaseAllocatedHandler`);
+        await leaseAllocatedHandler.handle(event);
+        return;
+      }
 
       console.log(`[Handler] Processing REGISTRATION_CREATED for registration ${payload.registrationId}`);
 

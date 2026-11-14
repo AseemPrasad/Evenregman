@@ -98,6 +98,15 @@ export async function invalidateCacheTag(tag: string): Promise<number> {
   }
 }
 
+export async function invalidateEventCache(slug: string): Promise<void> {
+  try {
+    const { revalidateEventCache } = await import("@/lib/cache-revalidation");
+    await revalidateEventCache(slug);
+  } catch (err) {
+    console.error("[CacheService] Error invalidating event cache:", err);
+  }
+}
+
 export function getCacheStats() {
   const total = cacheStats.hits + cacheStats.misses;
   const hitRate = total > 0 ? (cacheStats.hits / total) * 100 : 0;

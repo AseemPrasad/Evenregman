@@ -1,4 +1,4 @@
-import { createCircuitBreaker, isCircuitBreakerEnabled, CircuitBreakerOpenError } from './circuit-breaker';
+import { createCircuitBreaker, isCircuitBreakerEnabled, CircuitBreakerOpenError, getAllCircuitBreakers } from './circuit-breaker';
 import { createCircuitBreakerConfig, CircuitBreakerPreset } from './circuit-breaker-config';
 import { FallbackStrategy, executeFallback } from './fallback-strategies';
 import { fallbackQueueService } from './fallback-queue';
@@ -31,42 +31,49 @@ class ExternalAPIClient {
       this.circuitBreakers.set(circuitBreakerKey, breaker);
     }
 
-    const breaker = this.circuitBreakers.get(circuitBreakerKey);
+    const breaker = this.circuitBreakers.get(circuitBreakerKey)!;
 
     try {
       return await breaker.execute();
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+    } catch (err) {
+      if (err instanceof CircuitBreakerOpenError) {
+        console.warn(`[ExternalAPIClient] Circuit breaker OPEN for ${circuitBreakerKey}`);
 
-      // Try fallback strategy first
-      if (options.fallbackStrategy) {
-        const fallbackResult = await executeFallback(options.fallbackStrategy, {
-          serviceName: options.serviceName,
-          operationName: options.operationName,
-          requestData: fn.toString(),
-          error: err,
-          metadata: options.metadata,
-        });
-
-        if (fallbackResult !== undefined) {
-          return fallbackResult;
+        if (options.fallbackStrategy) {
+          return await executeFallback(options.fallbackStrategy, err, {
+            serviceName: options.serviceName,
+            operationName: options.operationName,
+            metadata: options.metadata,
+          });
         }
       }
 
-      // If circuit breaker open, queue to fallback queue
-      if (error instanceof CircuitBreakerOpenError && env.CIRCUIT_BREAKER_ENABLE_FALLBACK) {
-        console.warn(`[ExternalAPI] ${options.serviceName} circuit breaker open, queueing fallback`);
-        await fallbackQueueService.enqueueFallback(
-          {
-            serviceName: options.serviceName,
-            operationName: options.operationName,
-            requestData: { operation: options.operationName },
-            error: err,
-            metadata: options.metadata,
-          },
-          5,
-        );
-        throw err;
+      throw err;
+    }
+  }
+
+  async executeWithQueueFallback<T>(
+    fn: () => Promise<T>,
+    options: ExternalAPICallOptions<T>,
+    payload: Record<string, any>,
+  ): Promise<T | { queued: true; queueId: string }> {
+    try {
+      return await this.executeWithCircuitBreaker(fn, options);
+    } catch (err) {
+      if (err instanceof CircuitBreakerOpenError) {
+        console.warn(`[ExternalAPIClient] Enqueuing fallback request for ${options.serviceName}:${options.operationName}`);
+
+        const queueId = await fallbackQueueService.enqueue({
+          serviceName: options.serviceName,
+          operationName: options.operationName,
+          payload,
+          priority: 5,
+        });
+
+        return {
+          queued: true,
+          queueId,
+        };
       }
 
       throw err;
@@ -74,40 +81,36 @@ class ExternalAPIClient {
   }
 }
 
-const externalAPIClient = new ExternalAPIClient();
+export const externalAPIClient = new ExternalAPIClient();
 
-export async function callExternalAPI<T>(
+export function makeExternalAPICall<T>(
+  serviceName: string,
+  operationName: string,
   fn: () => Promise<T>,
-  options: ExternalAPICallOptions<T>,
+  preset?: CircuitBreakerPreset,
 ): Promise<T> {
-  return externalAPIClient.executeWithCircuitBreaker(fn, options);
+  return externalAPIClient.executeWithCircuitBreaker(fn, {
+    serviceName,
+    operationName,
+    preset,
+  });
 }
 
-export async function fetchExternalAPI<T>(
-  url: string,
-  init?: RequestInit & { timeout?: number },
-  options?: Omit<ExternalAPICallOptions<T>, 'operationName'>,
-): Promise<T> {
-  const operationName = `${init?.method || 'GET'} ${new URL(url).pathname}`;
-
-  return callExternalAPI(
-    () =>
-      Promise.race([
-        fetch(url, init).then((res) => {
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-          }
-          return res.json() as Promise<T>;
-        }),
-        new Promise<T>((_, reject) =>
-          setTimeout(() => reject(new Error('Fetch timeout')), init?.timeout || 5000),
-        ),
-      ]),
+export function makeQueuedExternalAPICall<T>(
+  serviceName: string,
+  operationName: string,
+  fn: () => Promise<T>,
+  payload: Record<string, any>,
+  preset?: CircuitBreakerPreset,
+): Promise<T | { queued: true; queueId: string }> {
+  return externalAPIClient.executeWithQueueFallback(
+    fn,
     {
-      ...options,
+      serviceName,
       operationName,
-      serviceName: options?.serviceName || new URL(url).hostname,
+      preset,
     },
+    payload,
   );
 }
 
@@ -126,7 +129,6 @@ export function getAllCircuitBreakerStats(): CircuitBreakerStats[] {
     return [];
   }
 
-  const { getAllCircuitBreakers } = require('./circuit-breaker');
   const stats: CircuitBreakerStats[] = [];
 
   for (const [name, breaker] of getAllCircuitBreakers()) {

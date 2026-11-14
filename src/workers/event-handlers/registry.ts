@@ -3,6 +3,7 @@ import "server-only";
 import type { OutboxEvent } from "@/models/OutboxEvent";
 import type { EventHandler } from "@/workers/event-handlers/base";
 import { registrationCreatedHandler } from "@/workers/event-handlers/registration-created";
+import { registrationCancelledHandler } from "@/workers/event-handlers/registration-cancelled";
 import { leaseAllocatedHandler } from "@/workers/event-handlers/lease-allocated";
 
 class EventHandlerRegistry {
@@ -14,6 +15,7 @@ class EventHandlerRegistry {
 
   private registerHandlers(): void {
     this.register(registrationCreatedHandler);
+    this.register(registrationCancelledHandler);
     this.register(leaseAllocatedHandler);
   }
 
