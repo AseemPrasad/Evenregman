@@ -2,7 +2,7 @@ import "server-only";
 
 import { model, models, Schema, type Model, type Types } from "mongoose";
 
-export const REGISTRATION_STATUSES = ["ACTIVE", "CANCELLED"] as const;
+export const REGISTRATION_STATUSES = ["ACTIVE", "CANCELLED", "EXPIRED", "RELEASED"] as const;
 export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
 
 export interface Registration {
@@ -14,6 +14,13 @@ export interface Registration {
   cancelledAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+
+  // Additive fields for Enterprise Resource & Environment Mesh (ResMesh)
+  kind?: "REGISTRATION" | "LEASE";
+  leaseStartedAt?: Date;
+  leaseExpiresAt?: Date;
+  leaseReleasedAt?: Date | null;
+  leaseToken?: string;
 }
 
 export interface RegistrationModel extends Model<Registration> {}
@@ -49,6 +56,27 @@ const registrationSchema = new Schema<Registration, RegistrationModel>(
     cancelledAt: {
       type: Date,
       default: null
+    },
+    kind: {
+      type: String,
+      enum: ["REGISTRATION", "LEASE"],
+      default: "REGISTRATION"
+    },
+    leaseStartedAt: {
+      type: Date,
+      default: undefined
+    },
+    leaseExpiresAt: {
+      type: Date,
+      default: undefined
+    },
+    leaseReleasedAt: {
+      type: Date,
+      default: null
+    },
+    leaseToken: {
+      type: String,
+      default: undefined
     }
   },
   {

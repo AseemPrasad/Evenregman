@@ -3,6 +3,7 @@ import "server-only";
 import type { OutboxEvent } from "@/models/OutboxEvent";
 import type { EventHandler } from "@/workers/event-handlers/base";
 import { registrationCreatedHandler } from "@/workers/event-handlers/registration-created";
+import { leaseAllocatedHandler } from "@/workers/event-handlers/lease-allocated";
 
 class EventHandlerRegistry {
   private handlers: Map<string, EventHandler> = new Map();
@@ -13,6 +14,7 @@ class EventHandlerRegistry {
 
   private registerHandlers(): void {
     this.register(registrationCreatedHandler);
+    this.register(leaseAllocatedHandler);
   }
 
   register(handler: EventHandler): void {
