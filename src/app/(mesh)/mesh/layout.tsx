@@ -38,6 +38,9 @@ export default function MeshLayout({
               <Link href="/mesh/leases" className="px-3 py-1.5 rounded-md hover:text-white hover:bg-slate-800 transition">
                 Active Leases
               </Link>
+              <Link href="/mesh/audit" className="px-3 py-1.5 rounded-md hover:text-white hover:bg-slate-800 transition">
+                Live Audit Stream
+              </Link>
             </nav>
           </div>
 

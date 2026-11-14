@@ -79,6 +79,7 @@ class CDCWorker {
       this.changeStream = collection.watch([], {
         fullDocument: "updateLookup",
         resumeAfter: undefined,
+        readPreference: "secondaryPreferred"
       });
 
       console.log(`[CDCWorker] Change stream opened for ${collectionName}`);
@@ -132,13 +133,16 @@ class CDCWorker {
 
     const startTime = Date.now();
 
-    for (const handler of handlers) {
-      try {
-        await handler(change);
-      } catch (err) {
-        console.error(`[CDCWorker] Handler error for ${collectionName}:`, err);
-      }
-    }
+    // High-Scale Optimization: Execute handlers concurrently to prevent slow webhooks/projections from lagging the oplog cursor
+    const results = await Promise.allSettled(
+      handlers.map(async (handler) => {
+        try {
+          await handler(change);
+        } catch (err) {
+          console.error(`[CDCWorker] Handler error for ${collectionName}:`, err);
+        }
+      })
+    );
 
     const latency = Date.now() - startTime;
     if (latency > 100) {
