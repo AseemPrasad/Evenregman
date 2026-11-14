@@ -19,11 +19,12 @@
 
 <p align="center">
   <a href="#-dual-engine-architecture">Dual Engines</a> •
+  <a href="#-feature-matrix-bento-grid">Bento Matrix</a> •
   <a href="#-why-this-architecture">Architecture Highlights</a> •
   <a href="#-interactive-concurrency-lifecycle">Concurrency Flow</a> •
-  <a href="#-complete-documentation-hub">Documentation</a> •
-  <a href="#-60-second-quickstart">Quickstart</a> •
-  <a href="#-concurrency--load-testing">Load Testing</a>
+  <a href="#-live-concurrency-stress-test-terminal">Terminal Proof</a> •
+  <a href="#-developer-quickstart--api-recipes">API Recipes</a> •
+  <a href="#-complete-documentation-hub">Documentation Hub</a>
 </p>
 
 ---
@@ -36,9 +37,17 @@
 
 ---
 
+## 🍱 Feature Matrix (Bento Grid)
+
+<p align="center">
+  <img src="./docs/assets/bento-features.svg" alt="Bento Feature Architecture Grid" width="100%" />
+</p>
+
+---
+
 ## ⚡ Why This Architecture?
 
-Traditional SaaS applications and naive CRUD clones fail catastrophically under burst traffic. Here is how `evenregman // ResMesh` compares against standard implementations:
+Traditional web applications and naive CRUD clones fail catastrophically under burst traffic. Here is how `evenregman // ResMesh` compares against standard implementations:
 
 | Operational Dimension | Standard Web Apps / Naive CRUD | `evenregman // ResMesh` Engine |
 |---|---|---|
@@ -97,6 +106,51 @@ sequenceDiagram
 
 ---
 
+## 🖥️ Live Concurrency Stress Test (Terminal Proof)
+
+When 50 parallel asynchronous workers target a scarce resource with only 5 remaining seats simultaneously:
+
+<p align="center">
+  <img src="./docs/assets/terminal-concurrency.svg" alt="Terminal Concurrency Stress Test Output" width="100%" />
+</p>
+
+---
+
+## 💻 Developer Quickstart & API Recipes
+
+### 1. Acquire a Compute Lease via SDK / API
+```typescript
+// Client-side or Automation script
+const response = await fetch("https://resmesh.io/api/mesh/leases", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    resourceId: "65b4c9e8f1a23c0012a45b67",
+    leaseDurationMinutes: 60
+  })
+});
+
+const lease = await response.json();
+console.log(lease.leaseToken); // rmsh_a8f9c1e402b8d77a94ef113098
+console.log(lease.expiresAt);  // 2026-11-14T19:00:00.000Z (Auto-reclaimed in 60m)
+```
+
+### 2. Poll Asynchronous CSV Export Job (JIT S3 Pre-signed URL)
+```bash
+# Trigger Export
+curl -X POST https://resmesh.io/api/host/events/xyz/registrations/export \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"detailed"}'
+
+# Response: { "jobId": "exp_8f1a23", "status": "queued" }
+
+# Poll Status (JIT Refreshed AWS SigV4 URL)
+curl https://resmesh.io/api/jobs/exp_8f1a23
+# Response: { "status": "completed", "downloadUrl": "https://bucket.s3.amazonaws.com/xyz.csv?X-Amz-Signature=..." }
+```
+
+---
+
 ## 📚 Complete Documentation Hub
 
 The project includes an extensive, enterprise-grade documentation suite located in [`docs/`](./docs):
@@ -113,7 +167,7 @@ The project includes an extensive, enterprise-grade documentation suite located 
 
 ---
 
-## ⚡ 60-Second Quickstart
+## ⚡ 60-Second Quickstart (Local Infrastructure)
 
 ### 1. Start Local Infrastructure
 The system requires a MongoDB replica set (`rs0`) and Redis. These are configured out-of-the-box in Docker Compose:
@@ -137,32 +191,6 @@ Visit `http://localhost:3000` for the ticketing portal, or `http://localhost:300
 In a dedicated terminal, run the outbox relay, lease reaper, export worker, and CDC pipeline runner:
 ```bash
 pnpm worker
-```
-
----
-
-## 🧪 Concurrency & Load Testing
-
-The repository includes a dedicated standalone high-concurrency load testing harness that simulates hundreds of concurrent reservations hitting the final seats simultaneously:
-
-```bash
-pnpm run test:concurrency
-```
-
-### Sample Output:
-```text
-=== STARTING CONCURRENCY STRESS TEST ===
-[Event Created] Capacity: 5 seats
-[Simulating 50 Concurrent Registrations...]
->> Thread 01: Reserved (4 remaining)
->> Thread 02: Reserved (3 remaining)
->> Thread 03: Reserved (2 remaining)
->> Thread 04: Reserved (1 remaining)
->> Thread 05: Reserved (0 remaining)
->> Thread 06..50: 409 Conflict (Sold Out)
-[Assertion Passed] Total Successful Bookings: 5 / 5
-[Assertion Passed] Zero Overselling Detected
-[Assertion Passed] MongoDB & Redis Counters in 100% Lockstep Synchronization
 ```
 
 ---
