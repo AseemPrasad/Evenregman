@@ -2,8 +2,8 @@ import { z } from "zod";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  NEXT_PUBLIC_APP_URL: z.string().url(),
-  AUTH_URL: z.string().url(),
+  NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
+  AUTH_URL: z.string().default("http://localhost:3000"),
   AUTH_SECRET: z.string().min(1),
   MONGODB_URI: z.string().min(1),
   MONGODB_DB: z.string().min(1),

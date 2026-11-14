@@ -76,7 +76,13 @@ function scimError(status: number, detail: string): SCIMError {
   };
 }
 
-export async function GET(req: Request, { params }: any) {
+type RouteContext = {
+  params: Promise<{
+    scim: string[];
+  }>;
+};
+
+export async function GET(req: Request, { params }: RouteContext) {
   const authHeader = req.headers.get("authorization");
   const org = await authenticateSCIM(authHeader);
 
@@ -90,12 +96,15 @@ export async function GET(req: Request, { params }: any) {
   await connectToDatabase();
 
   try {
+    const { scim } = await params;
     const url = new URL(req.url);
-    const pathParts = (params.scim || []) as string[];
+    const pathParts = (scim || []) as string[];
     const resource = pathParts[0];
     const resourceId = pathParts[1];
 
-    if (resource === "Users" && resourceId === "undefined") {
+    const isListRequest = !resourceId || resourceId === "undefined";
+
+    if (resource === "Users" && isListRequest) {
       const startIndex = parseInt(url.searchParams.get("startIndex") || "1");
       const count = parseInt(url.searchParams.get("count") || "20");
 
@@ -173,7 +182,7 @@ export async function GET(req: Request, { params }: any) {
   }
 }
 
-export async function POST(req: Request, { params }: any) {
+export async function POST(req: Request, { params }: RouteContext) {
   const authHeader = req.headers.get("authorization");
   const org = await authenticateSCIM(authHeader);
 
@@ -187,8 +196,9 @@ export async function POST(req: Request, { params }: any) {
   await connectToDatabase();
 
   try {
+    const { scim } = await params;
     const body = await req.json();
-    const pathParts = (params.scim || []) as string[];
+    const pathParts = (scim || []) as string[];
     const resource = pathParts[0];
 
     if (resource === "Users") {
@@ -212,7 +222,7 @@ export async function POST(req: Request, { params }: any) {
   }
 }
 
-export async function PATCH(req: Request, { params }: any) {
+export async function PATCH(req: Request, { params }: RouteContext) {
   const authHeader = req.headers.get("authorization");
   const org = await authenticateSCIM(authHeader);
 
@@ -226,8 +236,9 @@ export async function PATCH(req: Request, { params }: any) {
   await connectToDatabase();
 
   try {
+    const { scim } = await params;
     const body = await req.json();
-    const pathParts = (params.scim || []) as string[];
+    const pathParts = (scim || []) as string[];
     const resourceId = pathParts[1];
 
     if (!resourceId) {
@@ -277,7 +288,7 @@ export async function PATCH(req: Request, { params }: any) {
   }
 }
 
-export async function DELETE(req: Request, { params }: any) {
+export async function DELETE(req: Request, { params }: RouteContext) {
   const authHeader = req.headers.get("authorization");
   const org = await authenticateSCIM(authHeader);
 
@@ -291,7 +302,8 @@ export async function DELETE(req: Request, { params }: any) {
   await connectToDatabase();
 
   try {
-    const pathParts = (params.scim || []) as string[];
+    const { scim } = await params;
+    const pathParts = (scim || []) as string[];
     const resourceId = pathParts[1];
 
     if (!resourceId) {

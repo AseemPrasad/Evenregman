@@ -115,7 +115,9 @@ export async function registerAttendeeForEvent(
         const passwordMatches = await bcrypt.compare(parsed.data.password, existingUser.passwordHash);
 
         if (!passwordMatches) {
-          throw new Error("Incorrect password for the existing attendee account.");
+          throw new Error(
+            "An account already exists for this email with a different password. Please enter your existing attendee password, or sign in to confirm."
+          );
         }
 
         attendeeId = existingUser._id;
@@ -320,7 +322,9 @@ export async function registerAttendeeForEventAtomic(
         const passwordMatches = await bcrypt.compare(parsed.data.password, existingUser.passwordHash);
 
         if (!passwordMatches) {
-          throw new Error("Incorrect password for the existing attendee account.");
+          throw new Error(
+            "An account already exists for this email with a different password. Please enter your existing attendee password, or sign in to confirm."
+          );
         }
 
         attendeeId = existingUser._id;
