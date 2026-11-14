@@ -34,6 +34,12 @@ export function LeaseBookingForm({
 
       const data = await res.json();
 
+      if (res.status === 401) {
+        const currentUrl = encodeURIComponent(window.location.pathname);
+        router.push(`/signin?callbackUrl=${currentUrl}`);
+        return;
+      }
+
       if (!res.ok) {
         throw new Error(data.error || "Failed to acquire lease.");
       }

@@ -5,7 +5,7 @@ import { MembershipModel, type MembershipRole } from "@/models/Membership";
 import { env } from "@/lib/env";
 import type { Types } from "mongoose";
 
-export const PROTECTED_ROUTE_PREFIXES = ["/dashboard", "/host", "/attendee"] as const;
+export const PROTECTED_ROUTE_PREFIXES = ["/dashboard", "/host", "/attendee", "/mesh"] as const;
 
 export function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_ROUTE_PREFIXES.some((prefix) =>
@@ -26,6 +26,10 @@ export function getProtectedRouteRole(pathname: string): UserRole | null {
 }
 
 export function isRoleAllowedForRoute(role: UserRole | undefined, pathname: string): boolean {
+  if (pathname.startsWith("/mesh")) {
+    return Boolean(role); // Any authenticated user can access the developer mesh
+  }
+
   const requiredRole = getProtectedRouteRole(pathname);
 
   if (!requiredRole || !role) {

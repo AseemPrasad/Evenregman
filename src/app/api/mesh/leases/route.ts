@@ -1,7 +1,7 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/session";
 import { acquireResourceLease, releaseResourceLease, extendResourceLease } from "@/lib/mesh/lease-service";
 
 /**

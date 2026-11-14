@@ -47,6 +47,7 @@ export const LEASE_LUA_SCRIPTS = {
 
   /**
    * Explicit early release of a lease, incrementing back the available capacity.
+   * If Redis experienced cold-start or eviction, self-heals capacity safely.
    * KEYS[1]: capacity counter key
    * KEYS[2]: lease token tracking key
    */
@@ -55,12 +56,13 @@ export const LEASE_LUA_SCRIPTS = {
     local leaseKey = KEYS[2]
 
     local exists = redis.call('DEL', leaseKey)
-    if exists == 1 then
-      local newCount = redis.call('INCR', countKey)
-      return {ok = newCount}
+    local current = redis.call('GET', countKey)
+    if not current then
+      return {ok = 0}
     end
 
-    return {ok = 0}
+    local newCount = redis.call('INCR', countKey)
+    return {ok = newCount}
   `,
 
   /**

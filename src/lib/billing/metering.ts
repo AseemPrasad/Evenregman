@@ -3,6 +3,7 @@ import "server-only";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/db";
 import { UsageRecordModel, type UsageMetricType } from "@/models/UsageRecord";
+import { getRedisClient } from "@/lib/redis-client";
 
 /**
  * Asynchronously logs usage without blocking the sub-2ms critical booking path.
@@ -36,12 +37,25 @@ export async function trackUsageAsync(params: {
 
 /**
  * Aggregates monthly consumption for tenant billing or usage auditing.
+ * Caches in Redis for 60 seconds to avoid multi-second MongoDB full table scans.
  */
 export async function getTenantMonthlyUsage(orgId?: string): Promise<{
   totalLeaseMinutes: number;
   totalComputeDollars: number;
   totalApiCalls: number;
 }> {
+  const cacheKey = `cache:metering:monthly:${orgId || "global"}`;
+
+  try {
+    const redis = getRedisClient();
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch {
+    // Ignore Redis cache read errors
+  }
+
   await connectToDatabase();
 
   const startOfMonth = new Date();
@@ -72,14 +86,24 @@ export async function getTenantMonthlyUsage(orgId?: string): Promise<{
 
   for (const entry of results) {
     if (entry._id === "LEASE_MINUTES") totalLeaseMinutes = entry.total;
+    if (entry._id === "SLOT_HOURS") totalLeaseMinutes += entry.total * 60;
     if (entry._id === "COMPUTE_DOLLARS") totalComputeDollars = entry.total;
     if (entry._id === "API_CALLS") totalApiCalls = entry.total;
   }
 
-  return {
+  const output = {
     totalLeaseMinutes,
     totalComputeDollars,
     totalApiCalls
   };
+
+  try {
+    const redis = getRedisClient();
+    await redis.set(cacheKey, JSON.stringify(output), "EX", 60); // 60s TTL
+  } catch {
+    // Ignore Redis cache write errors
+  }
+
+  return output;
 }
 

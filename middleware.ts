@@ -65,5 +65,5 @@ export const middleware = auth(async (request) => {
 });
 
 export const config = {
-	matcher: ["/dashboard/:path*", "/host/:path*", "/attendee/:path*"]
+	matcher: ["/dashboard/:path*", "/host/:path*", "/attendee/:path*", "/mesh/:path*"]
 };

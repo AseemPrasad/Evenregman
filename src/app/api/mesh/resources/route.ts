@@ -3,7 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { EventModel } from "@/models/Event";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/session";
 import { createEnterpriseResource } from "@/lib/mesh/lease-service";
 
 /**
