@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import React from "react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "ResMesh | Enterprise AI & Scarce Resource Allocation Mesh",
   description: "Deterministic, high-concurrency reservation mesh for AI compute, GPU clusters, and preview environments."

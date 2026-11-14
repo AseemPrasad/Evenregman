@@ -25,10 +25,11 @@ export const LEASE_LUA_SCRIPTS = {
 
     local current = redis.call('GET', countKey)
     if not current then
-      redis.call('SET', countKey, tostring(maxSlots))
+      redis.call('SET', countKey, tostring(maxSlots), 'EX', 604800)
       current = maxSlots
     else
       current = tonumber(current)
+      redis.call('EXPIRE', countKey, 604800)
     end
 
     if current <= 0 then

@@ -6,8 +6,10 @@ import Link from "next/link";
 interface AuditEvent {
   id: string;
   action: string;
-  entityType: string;
-  entityId: string;
+  entityType?: string;
+  targetType?: string;
+  entityId?: string;
+  targetId?: string;
   actorId: string;
   timestamp: string;
   status: string;

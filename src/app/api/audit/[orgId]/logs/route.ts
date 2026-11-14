@@ -27,9 +27,18 @@ export async function GET(req: Request, { params }: RouteContext) {
   try {
     await connectToDatabase();
 
-    const membership = await getUserMembership(session.user.id, orgId);
+    const isGlobalOrSelf = orgId === "self" || orgId === "global";
 
-    if (!membership) {
+    if (!isGlobalOrSelf) {
+      const membership = await getUserMembership(session.user.id, orgId);
+
+      if (!membership) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    } else if (session.user.role !== "HOST") {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { "Content-Type": "application/json" }

@@ -37,8 +37,8 @@ export async function GET(req: Request) {
           sendEvent({
             id: log._id.toString(),
             action: log.action,
-            entityType: log.entityType,
-            entityId: log.entityId?.toString(),
+            entityType: (log as any).targetType || (log as any).entityType || "RESOURCE",
+            entityId: (log as any).targetId?.toString() || (log as any).entityId?.toString() || "",
             actorId: log.actorId?.toString(),
             timestamp: log.createdAt.toISOString(),
             status: "COMMITTED"
@@ -70,8 +70,8 @@ export async function GET(req: Request) {
               sendEvent({
                 id: log._id.toString(),
                 action: log.action,
-                entityType: log.entityType,
-                entityId: log.entityId?.toString(),
+                entityType: (log as any).targetType || (log as any).entityType || "RESOURCE",
+                entityId: (log as any).targetId?.toString() || (log as any).entityId?.toString() || "",
                 actorId: log.actorId?.toString(),
                 timestamp: log.createdAt.toISOString(),
                 status: "COMMITTED"
